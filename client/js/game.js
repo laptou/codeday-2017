@@ -53,23 +53,40 @@ class Game {
         this.root = new PIXI.Container();
 
         this.renderer = PIXI.autoDetectRenderer(this.resolution.x, this.resolution.y, { resolution: this.scale });
-        this.renderer.autoResize = true;    
+        this.renderer.autoResize = true;
+
+        this.sprite = {};
+        this.stage = 0;
 
         this.view.screen.appendChild(this.renderer.view);
     }
 
-    init() {
-        var rectSprite = new PIXI.Graphics();
-        rectSprite.beginFill(0xFF3300);
-        rectSprite.drawRect(-50, -50, 100, 100);
-        rectSprite.endFill();
+    load() {
+        PIXI.loader.add("logo", "/img/logo.png").load(this.init.bind(this));
+    }
 
-        this.root.addChild(rectSprite);
+    init() {
+        this.sprite.logo = new PIXI.Sprite(PIXI.utils.TextureCache["logo"]);
+        this.sprite.logo.alpha = 0;
+        this.sprite.logo.anchor.set(0.5);
+
+        this.root.addChild(this.sprite.logo);
     }
 
     update(time) {
         var dtime = time - this.time.last;
 
+        switch (this.stage) {
+            case 0: // splash screen
+                if (time > 5) {
+                    this.stage = 1; // splash screen only lasts 5 seconds
+                    break;
+                }
+
+                this.sprite.logo.alpha = 1 - Math.abs(2.5 - time) * Math.abs(2.5 - time) / 6.25;
+
+                break;
+        }
 
         this.time.last = time;
     }
@@ -95,5 +112,6 @@ class Game {
 }
 
 var game = new Game();
+game.load();
 game.init();
 game.start();
