@@ -134,6 +134,6 @@ io.on('connection', function(socket) {
     });
 });
 
-http.listen(80, function() {
-    console.log("Listening on port 80.");
+http.listen((process.env.PORT || 80), function() {
+    console.log("Listening on port " + (process.env.PORT || 80));
 }); 
