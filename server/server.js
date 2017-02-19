@@ -13,9 +13,6 @@ app.engine('.hbs', exphbs({defaultLayout: 'standard', extname: '.hbs'}));
 app.set('view engine', '.hbs');
 
 app.get('/lobby/:id', function(req, res) {
-    gameServer.lobbies.forEach(function(data) {
-        console.log(data.id); 
-    })
     if(gameServer.lobbies.get(req.params.id) != null) {
         res.render('lobby');
     } else {
@@ -39,6 +36,28 @@ io.on('connection', function(socket) {
         gameServer.addPlayer(newPlayer);
         lobby.addPlayer(newPlayer);
 
+        function lobbyInfo() {
+            console.log("lobby info running" + lobby.players.length);
+            var players = []
+            lobby.players.forEach(function(player) {
+                players.push({
+                    "player-id": player.id,
+                    "player-name" : player.name
+                })
+            });
+
+            lobby.players.forEach(function(player) {
+                player.socket.emit('lobby-info', {
+                    "lobby-id": lobby.id,
+                    "lobby-name": lobby.name,
+                    "lobby-players": players
+                });
+            });
+        }
+        
+        lobbyInfo();
+
+
         socket.emit('player-assign', {
                 "player-name": newPlayer.name,
                 "player-id" : newPlayer.id
@@ -48,8 +67,7 @@ io.on('connection', function(socket) {
         lobby.players.forEach(function(player) {
             players.push({
                 "player-id": player.id,
-                "player-name" : player.name,
-                "player-host" : (lobby.host.id == player.id)
+                "player-name" : player.name
             })
         });
 
@@ -58,25 +76,28 @@ io.on('connection', function(socket) {
             "lobby-name": lobby.name,
             "lobby-players": players
         });
+
         console.log('Player connected: ' + newPlayer.name);
 
         //player
         socket.on('disconnect', function() {
             console.log('Player disconnected: ' + newPlayer.name);
-            lobby.remove(newPlayer);
+            lobby.removePlayer(newPlayer);
+            lobbyInfo();
         })
     });
 
-    //use 'game-play-event' message header to transmit any events 
+    //use 'lobby-event' message header to transmit any events 
     //you need to retransmit to all players in lobby
     // needs 'game-lobby', 'game-player', 'game-data' json things
     socket.on('lobby-event', function(data) {
-        var lobby = gameServer.lobbies.get(data['game-lobby']);
+        var lobby = gameServer.lobbies.get(data['lobby-id']);
         lobby.players.forEach(function(player) {
-            if(player.id != data['game-player']) {
+            if(player.id != data['player-id']) {
                 player.socket.emit('lobby-event', data);
-            }           
+            }
         });
+        console.log("OG MAMA STARTS A GAME!");           
     });
 
     /*********************************THIS DEALS WITH GETTING LOBBIES***********************/
@@ -84,7 +105,6 @@ io.on('connection', function(socket) {
     //creates game lobby
     socket.on('game-lobby-create', function(data) {
         var lobby = new Lobby("a small lobby " + count);
-        lobby.setHost(newPlayer);
         gameServer.addLobby(lobby);
         console.log('lobby created: ' + lobby.name);
         socket.emit('game-lobby-created', {
@@ -100,11 +120,13 @@ io.on('connection', function(socket) {
             "lobbies" : []
         }
         gameServer.lobbies.forEach(function(lobby) {
-            lobbyJSON['lobbies'].push({
-                "lobby-name" : lobby.name,
-                "lobby-id" : lobby.id,
-                "lobby-players" : lobby.players.length
-            });
+            if(lobby.players.length < 4) {
+                lobbyJSON['lobbies'].push({
+                    "lobby-name" : lobby.name,
+                    "lobby-id" : lobby.id,
+                    "lobby-players" : lobby.players.length
+                });
+            }
         });
         socket.emit('game-lobbies', lobbyJSON);
         console.log('sent lobbies');    
