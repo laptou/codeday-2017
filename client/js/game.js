@@ -260,17 +260,22 @@ class Game {
 
         // #region grid generation
 
-        let size = 64;
-        this.bounds = { x: 96, y: 140, width: (game.resolution.x - 192), height: (game.resolution.y - 256), size: size };
+        this.bounds = { x: 96, y: 140, width: (game.resolution.x - 192), height: (game.resolution.y - 256) };
+        this.bounds.size = Math.min(Math.floor(this.bounds.height / 8), Math.floor(this.bounds.width / 12));
+        this.bounds.x = game.resolution.x / 2 - 6 * this.bounds.size;
+        this.bounds.y = game.resolution.y / 2 - 4 * this.bounds.size;
+        this.bounds.width = 12 * this.bounds.size;
+        this.bounds.height = 8 * this.bounds.size;
+
         this.grid = new PIXI.Container();
         this.grid.position.set(this.bounds.x, this.bounds.y);
 
-        let hrange = Math.floor(this.bounds.width / size),
-            vrange = Math.floor(this.bounds.height / size);
+        let hrange = 12,
+            vrange = 8;
 
         var darkTile = new PIXI.Graphics();
         darkTile.beginFill(0, 0.25);
-        darkTile.drawRect(0, 0, size, size);
+        darkTile.drawRect(0, 0, this.bounds.size, this.bounds.size);
         darkTile.endFill();
         var darkTex = darkTile.generateCanvasTexture();
 
@@ -278,8 +283,8 @@ class Game {
             for (var x = 0; x < hrange; x++) {
                 if ((x + (y % 2)) % 2 == 0) {
                     var sprite = new PIXI.Sprite(darkTex);
-                    sprite.x = x * size;
-                    sprite.y = y * size;
+                    sprite.x = x * this.bounds.size;
+                    sprite.y = y * this.bounds.size;
                     this.grid.addChild(sprite);
                 }
             }
@@ -296,17 +301,17 @@ class Game {
             var x = Math.floor(Math.random() * hrange / 2) * 2;
             var y = Math.floor(Math.random() * vrange / 2) * 2;
 
-            var bombTile = new Tile(Tile.TYPE.BOMB, x, y);
+            var bombTile = new Tile(this, Tile.TYPE.BOMB, x, y);
 
             this.grid.addChild(bombTile.container);
             this.tiles.push(bombTile);
         }
 
-        this.player = new Player(this, 1, size);
+        this.player = new Player(this, 1, this.bounds.size);
 
         for (var x = 1; x < hrange; x += 2) {
             for (var y = 1; y < vrange; y += 2) {
-                var metalTile = new Tile(Tile.TYPE.METAL, x, y);
+                var metalTile = new Tile(this, Tile.TYPE.METAL, x, y);
 
                 this.grid.addChild(metalTile.container);
                 this.tiles.push(metalTile);
@@ -319,9 +324,8 @@ class Game {
 
     tileAt(x, y) {
         for(let mtile of this.tiles) {
-            if (mtile.x * 64 <= x && mtile.x * 64 + 64 >= x)
-                if (mtile.y * 64 <= y && mtile.y * 64 + 64 >= y)
-                    return mtile;
+            if (mtile.x == x && mtile.y == y)
+                return mtile;
         }
 
         return null;
@@ -448,7 +452,6 @@ class Player {
                         break;
                 }
             } else {
-
                 switch (this.move.direction) {
                     case "left":
                         this.x = this.move.sx - 1;
@@ -503,19 +506,19 @@ class Player {
         switch (this.facing) {
             case "left":
                 if (this.x <= 0) return false;
-                offset.x = -64;
+                offset.x = -1;
                 break;
             case "right":
-                if (this.x + 64 >= this.game.grid.width) return false;
-                offset.x = 64;
+                if (this.x + 1 >= this.game.grid.width / this.game.bounds.size) return false;
+                offset.x = 1;
                 break;
             case "up":
                 if (this.y <= 0) return false;
-                offset.y = -64;
+                offset.y = -1;
                 break;
             case "down":
-                if (this.y + 64 >= this.game.grid.height) return false;
-                offset.y = 64;
+                if (this.y + 1 >= this.game.grid.height / this.game.bounds.size) return false;
+                offset.y = 1;
                 break;
         }
 
@@ -532,8 +535,8 @@ class Tile {
         return { METAL: 1, WOOD: 2, BOMB: 3, SPEED: 4 };
     }
 
-    constructor(type, x, y) {
-        let size = 64;
+    constructor(game, type, x, y) {
+        let size = game.bounds.size;
 
         this.container = new PIXI.Container();
         this.x = x;
@@ -545,14 +548,14 @@ class Tile {
                 var metalTile = new PIXI.Sprite(PIXI.utils.TextureCache["metal"]);
                 var shadowTile = new PIXI.Sprite(PIXI.utils.TextureCache["shadow"]);
 
-                metalTile.x = x * 64;
-                metalTile.y = y * 64 - 16;
+                metalTile.x = x * size;
+                metalTile.y = y * size - size * 0.25;
                 metalTile.anchor.set(0, 0);
                 metalTile.width = size;
                 metalTile.height = size * 1.25;
 
-                shadowTile.x = x * 64 - 8;
-                shadowTile.y = y * 64 + 32;
+                shadowTile.x = x * size - size * 0.125;
+                shadowTile.y = y * size + size * 0.5;
                 shadowTile.anchor.set(0, 0);
                 shadowTile.width = size * 1.25;
                 shadowTile.height = size * 1.25 * 0.6;
@@ -564,14 +567,14 @@ class Tile {
                 var woodTile = new PIXI.Sprite(PIXI.utils.TextureCache["wood"]);
                 var shadowTile = new PIXI.Sprite(PIXI.utils.TextureCache["shadow"]);
 
-                woodTile.x = x * 64;
-                woodTile.y = y * 64;
+                woodTile.x = x * size;
+                woodTile.y = y * size;
                 woodTile.anchor.set(0, 0);
                 woodTile.width = size;
                 woodTile.height = size;
 
-                shadowTile.x = x * 64 - 8;
-                shadowTile.y = y * 64 + 32;
+                shadowTile.x = x * size - size * 0.125;
+                shadowTile.y = y * size + size * 0.5;
                 shadowTile.anchor.set(0, 0);
                 shadowTile.width = size * 1.25;
                 shadowTile.height = size * 1.25 * 0.6;
@@ -582,8 +585,8 @@ class Tile {
             case Tile.TYPE.BOMB:
                 var bombTile = new PIXI.Sprite(PIXI.utils.TextureCache["bomb-tile"]);
 
-                bombTile.x = x * 64;
-                bombTile.y = y * 64;
+                bombTile.x = x * size;
+                bombTile.y = y * size;
                 bombTile.anchor.set(0, 0);
                 bombTile.width = size;
                 bombTile.height = size;
@@ -602,16 +605,16 @@ class Bomb {
         this.y = y;
 
         this.sprite = new PIXI.Sprite(PIXI.utils.TextureCache["bomb"]);
-        this.sprite.width = 64;
-        this.sprite.height = 64;
+        this.sprite.width = game.bounds.size;
+        this.sprite.height = game.bounds.size;
         this.game.grid.addChild(this.sprite);
 
-        this.sprite.x = x;
-        this.sprite.y = y;
+        this.sprite.x = x * game.bounds.size;
+        this.sprite.y = y * game.bounds.size;
     }
 
     update(time, dtime) {
-        var red = (time - this.time) / 5;
+        var red = (time - this.time) / 2;
         if (red >= 1) {
             this.explode(time);
         }
