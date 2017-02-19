@@ -13,9 +13,6 @@ app.engine('.hbs', exphbs({defaultLayout: 'standard', extname: '.hbs'}));
 app.set('view engine', '.hbs');
 
 app.get('/lobby/:id', function(req, res) {
-    gameServer.lobbies.forEach(function(data) {
-        console.log(data.id); 
-    })
     if(gameServer.lobbies.get(req.params.id) != null) {
         res.render('lobby');
     } else {
@@ -40,6 +37,7 @@ io.on('connection', function(socket) {
         lobby.addPlayer(newPlayer);
 
         function lobbyInfo() {
+            console.log("lobby info running" + lobby.players.length);
             var players = []
             lobby.players.forEach(function(player) {
                 players.push({
@@ -48,17 +46,17 @@ io.on('connection', function(socket) {
                 })
             });
 
-            socket.emit('lobby-info', {
-                "lobby-id": lobby.id,
-                "lobby-name": lobby.name,
-                "lobby-players": players
-            });
+            lobby.players.forEach(function(player) {
+                player.socket.emit('lobby-info', {
+                    "lobby-id": lobby.id,
+                    "lobby-name": lobby.name,
+                    "lobby-players": players
+                });
+            })
+            
         }
-
-        socket.on('lobby-info', function(data) {
-            lobbyInfo();
-        });
         lobbyInfo();
+
 
         socket.emit('player-assign', {
                 "player-name": newPlayer.name,
@@ -92,12 +90,13 @@ io.on('connection', function(socket) {
     //you need to retransmit to all players in lobby
     // needs 'game-lobby', 'game-player', 'game-data' json things
     socket.on('lobby-event', function(data) {
-        var lobby = gameServer.lobbies.get(data['game-lobby']);
+        var lobby = gameServer.lobbies.get(data['lobby-id']);
         lobby.players.forEach(function(player) {
-            if(player.id != data['game-player']) {
+            if(player.id != data['player-id']) {
                 player.socket.emit('lobby-event', data);
-            }           
+            }
         });
+        console.log("OG MAMA STARTS A GAME!");           
     });
 
     /*********************************THIS DEALS WITH GETTING LOBBIES***********************/

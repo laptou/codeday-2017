@@ -15,7 +15,11 @@ Lobby.prototype.addPlayer = function(player) {
 }
 
 Lobby.prototype.removePlayer = function(player) {
-    this.players = this.players.splice(this.players.indexOf(player), 1);
+    if(this.players.length > 1) {
+        this.players = this.players.splice(this.players.indexOf(player), 1);
+    } else {
+        this.players = [];
+    }
 }   
 
 module.exports = Lobby;
