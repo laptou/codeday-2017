@@ -553,7 +553,8 @@ class Player {
 
     update(time, dtime) {
         if (this.dead) {
-            this.sprite.alpha = Math.max(0, time - this.deadTime);
+            this.sprite.alpha = Math.max(0, 1 - time + this.deadTime);
+            return;
         }
 
         if (this.keyboard.last && !this.keyboard.last.isDown)
