@@ -1,4 +1,4 @@
-/// <reference path="pixi.js" />
+/// <reference path="vendor/pixi.js" />
 
 var vector = {
     mult: function multiply(vec, x) {
@@ -31,7 +31,11 @@ var vector = {
         return vector.mult(vec, 1 / (vector.len(vec) || 1));
     }
 };
-let tints = [0xFF9999, 0xFFFF99, 0x99FF99, 0x9999FF, 0xFFCC99, 0xFF99CC];
+let tints = [0xFF9999, 0x99FF99, 0xFFFF99, 0x9999FF, 0xFFCC99, 0xFF99CC];
+let keybinds = [
+    [37, 39, 38, 40, 13],
+    [65, 68, 87, 83, 70]
+];
 
 class Keyboard {
     constructor(keyCode) {
@@ -108,6 +112,7 @@ class Game {
             .add("wood", "/img/wood.png")
             .add("shadow", "/img/shadow.png")
             .add("bomb", "/img/bomb.png")
+            .add("fire", "/img/fire.png")
             .add("bomb-tile", "/img/bomb-tile.png")
             .add("tree-light", "/img/tree-light.png")
             .add("tree-dark", "/img/tree-dark.png")
@@ -148,7 +153,9 @@ class Game {
 
                 break;
             case 2:
-                this.player.update(time, dtime);
+                for (let player of this.players) {
+                    player.update(time, dtime);
+                }
 
                 for (let bomb of this.bombs) {
                     bomb.update(time, dtime);
@@ -261,17 +268,17 @@ class Game {
         // #region grid generation
 
         this.bounds = { x: 96, y: 140, width: (game.resolution.x - 192), height: (game.resolution.y - 256) };
-        this.bounds.size = Math.min(Math.floor(this.bounds.height / 8), Math.floor(this.bounds.width / 12));
+        this.bounds.size = Math.min(Math.floor(this.bounds.height / 9), Math.floor(this.bounds.width / 13));
         this.bounds.x = game.resolution.x / 2 - 6 * this.bounds.size;
         this.bounds.y = game.resolution.y / 2 - 4 * this.bounds.size;
-        this.bounds.width = 12 * this.bounds.size;
-        this.bounds.height = 8 * this.bounds.size;
+        this.bounds.width = 13 * this.bounds.size;
+        this.bounds.height = 9 * this.bounds.size;
 
         this.grid = new PIXI.Container();
         this.grid.position.set(this.bounds.x, this.bounds.y);
 
-        let hrange = 12,
-            vrange = 8;
+        let hrange = 13,
+            vrange = 9;
 
         var darkTile = new PIXI.Graphics();
         darkTile.beginFill(0, 0.25);
@@ -295,6 +302,9 @@ class Game {
         this.tiles = [];
         this.bombs = [];
 
+        this.tileLayer = new PIXI.Container();
+        this.tileLayer.position.set(this.bounds.x, this.bounds.y);
+
         // #region tile generation
 
         for (var z = 0; z < 10; z++) {
@@ -303,23 +313,27 @@ class Game {
 
             var bombTile = new Tile(this, Tile.TYPE.BOMB, x, y);
 
-            this.grid.addChild(bombTile.container);
+            this.tileLayer.addChild(bombTile.container);
             this.tiles.push(bombTile);
         }
 
-        this.player = new Player(this, 1, this.bounds.size);
+        this.players = [new Player(this, 0, this.bounds.size), new Player(this, 1, this.bounds.size)];
+
+        this.players[1].x = 12;
+        this.players[1].y = 8;
 
         for (var x = 1; x < hrange; x += 2) {
             for (var y = 1; y < vrange; y += 2) {
                 var metalTile = new Tile(this, Tile.TYPE.METAL, x, y);
 
-                this.grid.addChild(metalTile.container);
+                this.tileLayer.addChild(metalTile.container);
                 this.tiles.push(metalTile);
             }
         }
         // #endregion
 
         this.root.addChild(this.grid);
+        this.root.addChild(this.tileLayer);
     }
 
     tileAt(x, y) {
@@ -339,12 +353,14 @@ class Player {
      * @param {Number} index
      * @param {Number} size
      */
-    constructor(game, index, size) {
+    constructor(game, index, size, x, y) {
         this.game = game;
         this.sprite = new PIXI.Sprite(PIXI.utils.TextureCache["player-front"]);
         this.sprite.tint = tints[index];
         this.sprite.width = size;
         this.sprite.height = size;
+        this.sprite.x = 0;
+        this.sprite.y = 0;
         this.vx = 0;
         this.vy = 0;
         this.x = 0;
@@ -354,12 +370,13 @@ class Player {
 
         this.game.grid.addChild(this.sprite);
         
+        var keybind = keybinds[index];
         this.keyboard = {
-            left: new Keyboard(37),
-            right: new Keyboard(39),
-            up: new Keyboard(38),
-            down: new Keyboard(40),
-            enter: new Keyboard(13),
+            left: new Keyboard(keybind[0]),
+            right: new Keyboard(keybind[1]),
+            up: new Keyboard(keybind[2]),
+            down: new Keyboard(keybind[3]),
+            enter: new Keyboard(keybind[4]),
             last: null
         };
 
@@ -390,7 +407,7 @@ class Player {
                 case this.keyboard.right:
                     this.sprite.texture = PIXI.utils.TextureCache["player-right"];
 
-                    if (this.x + 1 > this.game.bounds.width / this.game.bounds.size) break;
+                    if (this.x + 1 >= this.game.bounds.width / this.game.bounds.size) break;
                     target = { x: this.x + 1, y: this.y };
 
                     this.move.direction = "right";
@@ -408,7 +425,7 @@ class Player {
                 case this.keyboard.down:
                     this.sprite.texture = PIXI.utils.TextureCache["player-front"];
 
-                    if (this.y + 1 > this.game.bounds.height / this.game.bounds.size) break;
+                    if (this.y + 1 >= this.game.bounds.height / this.game.bounds.size) break;
                     target = { x: this.x, y: this.y + 1 };
 
                     this.move.direction = "down";
@@ -437,19 +454,25 @@ class Player {
 
         if (this.move.direction) {
             if (time - this.move.lastTime <= 0.25) {
-                switch (this.move.direction) {
-                    case "left":
-                        this.sprite.x = this.move.sx * this.game.bounds.size - this.game.bounds.size * (time - this.move.lastTime) * 4;
-                        break;
-                    case "right":
-                        this.sprite.x = this.move.sx * this.game.bounds.size + this.game.bounds.size * (time - this.move.lastTime) * 4;
-                        break;
-                    case "up":
-                        this.sprite.y = this.move.sy * this.game.bounds.size - this.game.bounds.size * (time - this.move.lastTime) * 4;
-                        break;
-                    case "down":
-                        this.sprite.y = this.move.sy * this.game.bounds.size + this.game.bounds.size * (time - this.move.lastTime) * 4;
-                        break;
+                if (time - this.move.lastTime <= 0.05) {
+                    if(!this.keyboard.last.isDown)
+                        this.move.direction = null;
+                }
+                else {
+                    switch (this.move.direction) {
+                        case "left":
+                            this.sprite.x = this.move.sx * this.game.bounds.size - this.game.bounds.size * (time - this.move.lastTime) * 4;
+                            break;
+                        case "right":
+                            this.sprite.x = this.move.sx * this.game.bounds.size + this.game.bounds.size * (time - this.move.lastTime) * 4;
+                            break;
+                        case "up":
+                            this.sprite.y = this.move.sy * this.game.bounds.size - this.game.bounds.size * (time - this.move.lastTime) * 4;
+                            break;
+                        case "down":
+                            this.sprite.y = this.move.sy * this.game.bounds.size + this.game.bounds.size * (time - this.move.lastTime) * 4;
+                            break;
+                    }
                 }
             } else {
                 switch (this.move.direction) {
@@ -469,8 +492,12 @@ class Player {
 
                 this.sprite.x = this.x * this.game.bounds.size;
                 this.sprite.y = this.y * this.game.bounds.size;
+
                 this.move.direction = null;
             }
+        } else {
+            this.sprite.x = this.x * this.game.bounds.size;
+            this.sprite.y = this.y * this.game.bounds.size;
         }
     }
 
@@ -483,7 +510,7 @@ class Player {
         this.bomb = true;
 
         if (tile) {
-            this.game.grid.removeChild(tile.container);
+            this.game.tileLayer.removeChild(tile.container);
             this.game.tiles.splice(this.game.tiles.indexOf(tile), 1);
         }
 
@@ -522,7 +549,10 @@ class Player {
                 break;
         }
 
-        var bomb = new Bomb(this.game, time, this.x + offset.x, this.y + offset.y);
+        var target = { x: this.x + offset.x, y: this.y + offset.y };
+        if (game.tileAt(target.x, target.y)) return false;
+
+        var bomb = new Bomb(this.game, time, target.x, target.y);
         this.game.bombs.push(bomb);
 
         this.bomb = false;
@@ -620,6 +650,8 @@ class Bomb {
         }
 
         this.sprite.tint = (0xFF * red) << 16;
+        this.sprite.x = this.x * this.game.bounds.size + Math.random() * red * 5;
+        this.sprite.y = this.y * this.game.bounds.size + Math.random() * red * 5;
     }
 
     explode(time) {
