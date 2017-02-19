@@ -105,8 +105,9 @@ class Game {
         PIXI.loader
             .add("logo", "/img/logo.png")
             .add("metal", "/img/metal.png")
-            .add("stone", "/img/stone.png")
+            .add("wood", "/img/wood.png")
             .add("shadow", "/img/shadow.png")
+            .add("bomb", "/img/bomb.png")
             .add("bomb-tile", "/img/bomb-tile.png")
             .add("tree-light", "/img/tree-light.png")
             .add("tree-dark", "/img/tree-dark.png")
@@ -391,7 +392,7 @@ class Player {
                     this.sprite.texture = PIXI.utils.TextureCache["player-front"];
 
                     if (this.y + 64 > this.game.bounds.height) break;
-                    target = { x: this.x - 32, y: this.y + 96 };
+                    target = { x: this.x + 32, y: this.y + 96 };
 
                     this.move.direction = "down";
                     break;
@@ -408,7 +409,6 @@ class Player {
                     case Tile.TYPE.BOMB:
                         if (!this.pickBomb(tile))
                             this.move.direction = null;
-
                         break;
                 }
             }
@@ -459,9 +459,17 @@ class Player {
      */
     pickBomb(tile) {
         if (this.bomb) return false;
-
-        tile.container.parent.removeChild(tile.container);
         this.bomb = true;
+
+        if(tile)
+            tile.container.parent.removeChild(tile.container);
+
+        var bombSprite = new PIXI.Sprite(PIXI.utils.TextureCache["bomb"]);
+        bombSprite.width = 48;
+        bombSprite.height = 48;
+        bombSprite.anchor.set(0.5, 1);
+        bombSprite.position.set(32, 64);
+        this.sprite.addChild(bombSprite);
 
         return true;
     }

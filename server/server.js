@@ -9,6 +9,7 @@ var Player = require('./player.js');
 var Lobby = require('./lobby.js');
 
 app.use('/', express.static(path.join(__dirname, '../client')));
+
 app.engine('handlebars', exphbs({defaultLayout: 'main'}));
 app.set('view engine', 'handlebars');  
 
