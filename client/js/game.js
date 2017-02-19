@@ -31,7 +31,47 @@ var vector = {
         return vector.mult(vec, 1 / (vector.len(vec) || 1));
     }
 };
-let tints = [];
+let tints = [0xFF9999, 0xFFFF99, 0x99FF99, 0x9999FF, 0xFFCC99, 0xFF99CC];
+
+class Keyboard {
+    constructor(keyCode) {
+        this.code = keyCode;
+        this.isDown = false;
+        this.isUp = true;
+        this.onpress = undefined;
+        this.onrelease = undefined;
+        //The `downHandler`
+        this.downHandler = function (event) {
+            if (event.keyCode === this.code) {
+                if (this.isUp && this.press) this.press();
+                this.isDown = true;
+                this.isUp = false;
+
+                event.preventDefault();
+            }
+        };
+
+        //The `upHandler`
+        this.upHandler = function (event) {
+            if (event.keyCode === this.code) {
+                if (this.isDown && this.release) this.release();
+                this.isDown = false;
+                this.isUp = true;
+
+                event.preventDefault();
+            }
+        };
+
+        //Attach event listeners
+        window.addEventListener(
+          "keydown", this.downHandler.bind(this), false
+        );
+        window.addEventListener(
+          "keyup", this.upHandler.bind(this), false
+        );
+        return key;
+    }
+}
 
 class Game {
     constructor() {
@@ -69,8 +109,8 @@ class Game {
             .add("tree-dark", "/img/tree-dark.png")
             .add("player-right", "/img/player-right.png")
             .add("player-left", "/img/player-left.png")
-            .add("player-top", "/img/player-top.png")
-            .add("player-bottom", "/img/player-bottom.png")
+            .add("player-front", "/img/player-front.png")
+            .add("player-back", "/img/player-back.png")
             .load(this.init.bind(this));
     }
 
@@ -233,13 +273,33 @@ class Game {
         }
 
         // #endregion
+
+        var player = new Player(this, 0, size);
     }
 }
 
 class Player {
-    constructor(index) {
+    /**
+     * 
+     * @param {Game} game
+     * @param {Number} index
+     * @param {Number} size
+     */
+    constructor(game, index, size) {
+        this.game = game;
         this.sprite = new PIXI.Sprite(PIXI.utils.TextureCache["player-front"]);
-        this.sprite.tint = 0xFFFFFF;
+        this.sprite.tint = tints[index];
+        this.sprite.width = size;
+        this.sprite.height = size;
+
+        this.game.root.addChild(this.sprite);
+        
+        var left = new Keyboard(37),
+            right = new Keyboard(39),
+            up = new Keyboard(38),
+            down = new Keyboard(40);
+
+        
     }
 
     update(time, dtime) {
@@ -252,13 +312,7 @@ class Player {
     set y(y) { this.sprite.y = y; }
 }
 
-class Keyboard {
-    static penis() {
 
-    }
-}
-
-Keyboard.penis();
 
 var game = new Game();
 game.load();
