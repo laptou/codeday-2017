@@ -36,6 +36,12 @@ let keybinds = [
     [37, 39, 38, 40, 13],
     [65, 68, 87, 83, 70]
 ];
+function rgb(r, g, b) {
+    b = (typeof b !== 'undefined') ? b : r;
+    g = (typeof g !== 'undefined') ? g : r;
+
+    return (Math.floor(0xFF * r) << 16) + (Math.floor(0xFF * g) << 8) + Math.floor(0xFF * b);
+}
 
 class Keyboard {
     constructor(keyCode) {
@@ -90,7 +96,7 @@ class Game {
         this.origin = { x: 0, y: 0 };
         this.camera = { x: 0, y: 0 };
 
-        this.time = { start: -1, last: 0 };
+        this.time = { start: -1, last: 0, stage: 0 };
 
         this.loaded = false;
 
@@ -107,6 +113,8 @@ class Game {
         this.bombs = [];
         this.explosions = [];
 
+        this.levelGenerated = false;
+
         this.view.screen.appendChild(this.renderer.view);
     }
 
@@ -114,6 +122,7 @@ class Game {
         PIXI.loader
             .add("logo", "/img/logo.png")
             .add("metal", "/img/metal.png")
+            .add("metal-tombstone", "/img/metal-tombstone.png")
             .add("wood", "/img/wood.png")
             .add("shadow", "/img/shadow.png")
             .add("bomb", "/img/bomb.png")
@@ -135,6 +144,21 @@ class Game {
         this.sprite.logo.anchor.set(0.5);
         this.sprite.logo.position.set(this.resolution.x / 2, this.resolution.y / 2);
 
+        this.sprite.splashText = new PIXI.Text("SPLASHMAN", {
+            align: 'center',
+            fill: 'white',
+            fontSize: 144,
+            fontFamily: 'Sigmar One',
+            stroke: 0x9999FF,
+            strokeThickness: 10
+        });
+        this.sprite.splashText.anchor.set(0.5);
+
+        this.sprite.white = new PIXI.Graphics();
+        this.sprite.white.beginFill(0xFFFFFF);
+        this.sprite.white.drawRect(0, 0, this.resolution.x, this.resolution.y);
+        this.sprite.white.endFill();
+
         this.root.addChild(this.sprite.logo);
     }
 
@@ -143,7 +167,8 @@ class Game {
 
         switch (this.stage) {
             case 0: // splash screen
-                if (time > 0) {
+                if (time > 5) {
+                    this.time.stage = time;
                     this.stage = 1; // splash screen only lasts 5 seconds
                     break;
                 }
@@ -151,14 +176,56 @@ class Game {
                 this.sprite.logo.alpha = 1 - Math.abs(2.5 - time) * Math.abs(2.5 - time) / 6.25;
 
                 break;
-            case 1: // skip title screen for now
+            case 1:
                 this.root.removeChildren();
-                this.generateLevel();
 
-                this.stage = 2;
+                this.sprite.splashText.position.set(this.resolution.x / 2, this.resolution.y / 2);
+                this.sprite.splashText.alpha = 0;
+                this.root.addChild(this.sprite.splashText);
+
+                if (time - this.time.stage > 1) {
+                    this.time.stage = time;
+                    this.stage = 2;
+                } else {
+                    this.renderer.backgroundColor = rgb(time - this.time.stage);
+                }
 
                 break;
             case 2:
+                if (time - this.time.stage > 5.5) {
+                    this.time.stage = time;
+                    this.stage = 3;
+                    break;
+                }
+
+                var t = time - this.time.stage;
+                this.sprite.splashText.alpha = 1 - Math.abs(2.5 - t) * Math.abs(2.5 - t) / 6.25;
+                               
+                break;
+            case 3:
+                this.root.removeChildren();
+                this.generateLevel();
+
+                for (let player of this.players) {
+                    player.update(time, dtime);
+                }
+
+                this.root.addChild(this.sprite.white);
+
+                this.time.stage = time;
+                this.stage = 4;
+                break;
+            case 4:
+                if (time - this.time.stage > 1) {
+                    this.time.stage = time;
+                    this.stage = 5;
+                    this.root.removeChild(this.sprite.white);
+                } else {
+                    var t = time - this.time.stage;
+                    this.sprite.white.alpha = 1 - t;
+                }
+                break;
+            case 5:
                 for (let player of this.players) {
                     player.update(time, dtime);
                 }
@@ -193,6 +260,9 @@ class Game {
     }
 
     generateLevel() {
+        if (this.levelGenerated) return;
+        this.levelGenerated = true;
+
         var background = new PIXI.Graphics();
         background.beginFill(0x06A500);
         background.drawRect(0, 0, this.resolution.x, this.resolution.y);
@@ -392,7 +462,18 @@ class Game {
             case Tile.TYPE.METAL:
             case Tile.TYPE.WOOD:
                 this.tiles.splice(this.tiles.indexOf(tile), 1);
-                var newTile = new Powerup(this, Powerup.TYPE.BOMB, tile.x, tile.y);
+                if(Math.random() < 0.5)
+                    new Powerup(this, Powerup.TYPE.BOMB, tile.x, tile.y);
+                break;
+        }
+    }
+
+    removePowerup(tile) {
+        this.powerupLayer.removeChild(tile.container);
+
+        switch (tile.type) {
+            case Powerup.TYPE.BOMB:
+                this.powerups.splice(this.powerups.indexOf(tile), 1);
                 break;
         }
     }
@@ -420,6 +501,7 @@ class Player {
         this.facing = "down";
         this.bomb = false;
         this.dead = false;
+        this.moving = false;
 
         this.game.grid.addChild(this.sprite);
 
@@ -439,13 +521,16 @@ class Player {
         this.keyboard.right.onpress = () => this.keyboard.last = this.keyboard.right;
         this.keyboard.enter.onpress =
             () => this.dropBomb((performance.now() - this.game.time.start) / 1000);
-        this.move = { lastTime: 0, direction: null, sx: NaN, sy: NaN };
+        this.move = { lastTime: 0, direction: null, sx: NaN, sy: NaN, keepGoing: false };
     }
 
     update(time, dtime) {
         if (this.dead) return;
 
-        if (!this.move.direction && this.keyboard.last && this.keyboard.last.isDown && time - this.move.lastTime > 0.25) {
+        if (this.keyboard.last && !this.keyboard.last.isDown)
+            this.move.keepGoing = false;
+
+        if (!this.moving && this.keyboard.last && this.keyboard.last.isDown && time - this.move.lastTime > 0.25) {
             this.move.lastTime = time;
             var target = { x: 0, y: 0 };
 
@@ -488,10 +573,15 @@ class Player {
                     break;
             }
 
+            this.moving = true;
+            this.move.keepGoing = true;
+
             var tile = this.game.tileAt(target.x, target.y);
 
             if (tile) {
                 this.move.direction = null;
+                this.moving = false;
+                this.move.keepGoing = false;
             }
 
             var powerup = this.game.powerupAt(target.x, target.y);
@@ -506,11 +596,12 @@ class Player {
 
             this.move.sx = this.x;
             this.move.sy = this.y;
+            
         }
 
-        if (this.move.direction) {
+        if (this.moving && this.move.direction) {
             if (time - this.move.lastTime <= 0.25) {
-                if (time - this.move.lastTime <= 0.05) {
+                if (!this.move.keepGoing && time - this.move.lastTime <= 0.1) {
                     if (!this.keyboard.last.isDown)
                         this.move.direction = null;
                 }
@@ -554,6 +645,7 @@ class Player {
         } else {
             this.sprite.x = this.x * this.game.bounds.size;
             this.sprite.y = this.y * this.game.bounds.size;
+            this.moving = false;
         }
     }
 
@@ -566,8 +658,7 @@ class Player {
         this.bomb = true;
 
         if (tile) {
-            this.game.powerupLayer.removeChild(tile.container);
-            this.game.powerups.splice(this.game.powerups.indexOf(tile), 1);
+            this.game.removePowerup(tile);
         }
 
         var bombSprite = new PIXI.Sprite(PIXI.utils.TextureCache["bomb"]);
@@ -607,6 +698,8 @@ class Player {
 
         var target = { x: this.x + offset.x, y: this.y + offset.y };
         if (game.tileAt(target.x, target.y)) return false;
+        if (game.powerupAt(target.x, target.y)) return false;
+        if (game.playerAt(target.x, target.y)) return false;
 
         var bomb = new Bomb(this.game, time, target.x, target.y);
         this.game.bombs.push(bomb);
@@ -618,6 +711,7 @@ class Player {
     die(time) {
         this.dead = true;
         this.sprite.tint = 0x999999;
+        this.game.tiles.push(new Tile(this.game, Tile.TYPE.TOMB, this.x, this.y));
     }
 }
 
@@ -655,7 +749,7 @@ class Powerup {
 
 class Tile {
     static get TYPE() {
-        return { METAL: 1, WOOD: 2 };
+        return { METAL: 1, TOMB: 1.5, WOOD: 2 };
     }
 
     constructor(game, type, x, y) {
@@ -671,7 +765,8 @@ class Tile {
 
         switch (type) {
             case Tile.TYPE.METAL:
-                var metalTile = new PIXI.Sprite(PIXI.utils.TextureCache["metal"]);
+            case Tile.TYPE.TOMB:
+                var metalTile = new PIXI.Sprite(PIXI.utils.TextureCache[type == Tile.TYPE.METAL ? "metal" : "metal-tombstone"]);
                 var shadowTile = new PIXI.Sprite(PIXI.utils.TextureCache["shadow"]);
 
                 metalTile.x = x * size;
@@ -783,7 +878,7 @@ class Explosion {
 
     update(time, dtime) {
         var t = time - this.beginTime;
-        var r = Math.floor(t / 0.15) + 1; // r for current
+        var r = Math.floor(t / 0.05) + 1; // r for current
 
         if (r > this.radius) {
             if (this.left && this.x - r >= 0) {
