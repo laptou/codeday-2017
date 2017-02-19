@@ -1,4 +1,7 @@
 /// <reference path="vendor/pixi.js" />
+/// <reference path="lobby.js" />
+/// <reference path="vendor/socket.io.js" />
+/// <reference path="vendor/jquery-3.1.1.js" />
 
 var vector = {
     mult: function multiply(vec, x) {
@@ -92,7 +95,11 @@ class Game {
         this.setting = setting ? JSON.parse(setting) : {};
 
         this.scale = window.devicePixelRatio;
-        this.resolution = { x: this.view.screen.clientWidth * this.scale, y: this.view.screen.clientHeight * this.scale };
+
+        var clientWidth = this.view.screen.clientWidth;
+        var height = window.innerHeight - this.view.screen.clientTop;
+
+        this.resolution = { x: clientWidth, y: height };
         this.origin = { x: 0, y: 0 };
         this.camera = { x: 0, y: 0 };
 
@@ -113,7 +120,14 @@ class Game {
         this.bombs = [];
         this.explosions = [];
 
+        this.entered = false;
         this.levelGenerated = false;
+        this.socket = socket;
+
+        this.socket.on('lobby-event', data => {
+            if (data.event == 'start')
+                this.enter();
+        });
 
         this.view.screen.appendChild(this.renderer.view);
     }
@@ -212,8 +226,11 @@ class Game {
 
                 this.root.addChild(this.sprite.white);
 
-                this.time.stage = time;
-                this.stage = 4;
+                if (this.entered)
+                {
+                    this.time.stage = time;
+                    this.stage = 4;
+                }
                 break;
             case 4:
                 if (time - this.time.stage > 1) {
@@ -255,6 +272,10 @@ class Game {
         this.render(this.time.start);
     }
 
+    enter () {
+        this.entered = true;
+    }
+
     stop() {
         cancelAnimationFrame(this.hAnimFrame);
     }
@@ -272,7 +293,7 @@ class Game {
 
         // #region tree generation
 
-        for (var i = 1; i <= Math.ceil(game.resolution.x / hspace) ; i += 2) { // top dark
+        for (var i = 1; i <= Math.ceil(this.resolution.x / hspace) ; i += 2) { // top dark
             var tree = new PIXI.Sprite(PIXI.utils.TextureCache["tree-dark"]);
             tree.x = i * hspace;
             tree.y = (i + 1) % 2 * vspace - 32;
@@ -281,7 +302,7 @@ class Game {
             this.root.addChild(tree);
         }
 
-        for (var i = 0; i <= Math.ceil(game.resolution.x / hspace) ; i += 2) { // top light
+        for (var i = 0; i <= Math.ceil(this.resolution.x / hspace) ; i += 2) { // top light
             var tree = new PIXI.Sprite(PIXI.utils.TextureCache["tree-light"]);
             tree.x = i * hspace;
             tree.y = (i + 1) % 2 * vspace - 32;
@@ -289,7 +310,7 @@ class Game {
             this.root.addChild(tree);
         }
 
-        for (var i = 1; i <= Math.ceil(game.resolution.y / vspace) ; i += 2) { // left dark
+        for (var i = 1; i <= Math.ceil(this.resolution.y / vspace) ; i += 2) { // left dark
             var tree = new PIXI.Sprite(PIXI.utils.TextureCache["tree-dark"]);
             tree.x = 0;
             tree.y = i * 28;
@@ -298,16 +319,16 @@ class Game {
             this.root.addChild(tree);
         }
 
-        for (var i = 1; i <= Math.ceil(game.resolution.y / vspace) ; i += 2) { // right dark
+        for (var i = 1; i <= Math.ceil(this.resolution.y / vspace) ; i += 2) { // right dark
             var tree = new PIXI.Sprite(PIXI.utils.TextureCache["tree-dark"]);
-            tree.x = game.resolution.x;
+            tree.x = this.resolution.x;
             tree.y = i * 28;
             tree.anchor.set(0.5, 0);
 
             this.root.addChild(tree);
         }
 
-        for (var i = 0; i <= Math.ceil(game.resolution.y / vspace) ; i += 2) { // left light
+        for (var i = 0; i <= Math.ceil(this.resolution.y / vspace) ; i += 2) { // left light
             var tree = new PIXI.Sprite(PIXI.utils.TextureCache["tree-light"]);
             tree.x = hspace;
             tree.y = i * 28;
@@ -316,28 +337,28 @@ class Game {
             this.root.addChild(tree);
         }
 
-        for (var i = 0; i <= Math.ceil(game.resolution.y / vspace) ; i += 2) { // right light
+        for (var i = 0; i <= Math.ceil(this.resolution.y / vspace) ; i += 2) { // right light
             var tree = new PIXI.Sprite(PIXI.utils.TextureCache["tree-light"]);
-            tree.x = game.resolution.x - hspace;
+            tree.x = this.resolution.x - hspace;
             tree.y = i * 28;
             tree.anchor.set(0.5, 0);
 
             this.root.addChild(tree);
         }
 
-        for (var i = 0; i <= Math.ceil(game.resolution.x / hspace) ; i += 2) { // bottom light
+        for (var i = 0; i <= Math.ceil(this.resolution.x / hspace) ; i += 2) { // bottom light
             var tree = new PIXI.Sprite(PIXI.utils.TextureCache["tree-light"]);
             tree.x = i * hspace;
-            tree.y = game.resolution.y - (i + 1) % 2 * vspace + 32;
+            tree.y = this.resolution.y - (i + 1) % 2 * vspace + 32;
             tree.anchor.set(0.5, 1);
 
             this.root.addChild(tree);
         }
 
-        for (var i = 1; i <= Math.ceil(game.resolution.x / hspace) ; i += 2) { // bottom dark
+        for (var i = 1; i <= Math.ceil(this.resolution.x / hspace) ; i += 2) { // bottom dark
             var tree = new PIXI.Sprite(PIXI.utils.TextureCache["tree-dark"]);
             tree.x = i * hspace;
-            tree.y = game.resolution.y - (i + 1) % 2 * vspace + 32;
+            tree.y = this.resolution.y - (i + 1) % 2 * vspace + 32;
             tree.anchor.set(0.5, 1);
 
             this.root.addChild(tree);
@@ -347,10 +368,10 @@ class Game {
 
         // #region grid generation
 
-        this.bounds = { x: 96, y: 128, width: (game.resolution.x - 192), height: (game.resolution.y - 256) };
+        this.bounds = { x: 96, y: 128, width: (this.resolution.x - 192), height: (this.resolution.y - 256) };
         this.bounds.size = Math.min(Math.floor(this.bounds.height / 9), Math.floor(this.bounds.width / 13));
-        this.bounds.x = game.resolution.x / 2 - 6 * this.bounds.size;
-        this.bounds.y = game.resolution.y / 2 - 4 * this.bounds.size - 40;
+        this.bounds.x = this.resolution.x / 2 - 6 * this.bounds.size;
+        this.bounds.y = this.resolution.y / 2 - 4 * this.bounds.size - 40;
         this.bounds.width = 13 * this.bounds.size;
         this.bounds.height = 9 * this.bounds.size;
 
@@ -501,6 +522,7 @@ class Player {
         this.facing = "down";
         this.bomb = false;
         this.dead = false;
+        this.deadTime = -1;
         this.moving = false;
 
         this.game.grid.addChild(this.sprite);
@@ -525,7 +547,9 @@ class Player {
     }
 
     update(time, dtime) {
-        if (this.dead) return;
+        if (this.dead) {
+            this.sprite.alpha = Math.max(0, time - this.deadTime);
+        }
 
         if (this.keyboard.last && !this.keyboard.last.isDown)
             this.move.keepGoing = false;
@@ -596,7 +620,15 @@ class Player {
 
             this.move.sx = this.x;
             this.move.sy = this.y;
-            
+
+            if(this.move.direction)
+                this.game.socket.emit('lobby-event', {
+                    'player-id': playerID,
+                    'lobby-id': lobbyID,
+                    'data': {
+                        'event': 'move ' + this.move.direction
+                    }
+                })
         }
 
         if (this.moving && this.move.direction) {
@@ -971,7 +1003,11 @@ class Explosion {
     }
 }
 
-var game = new Game();
-game.load();
-game.init();
-game.start();
+$(function() {
+    var game = new Game();
+    game.load();
+    game.init();
+    game.start();
+
+    $('#lobby-game-start').click(() => game.enter());
+});
