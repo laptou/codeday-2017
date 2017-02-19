@@ -107,6 +107,7 @@ class Game {
             .add("metal", "/img/metal.png")
             .add("stone", "/img/stone.png")
             .add("shadow", "/img/shadow.png")
+            .add("bomb-tile", "/img/bomb-tile.png")
             .add("tree-light", "/img/tree-light.png")
             .add("tree-dark", "/img/tree-dark.png")
             .add("player-right", "/img/player-right.png")
@@ -281,32 +282,29 @@ class Game {
 
         // #endregion
 
-        this.tiles = { metal: [], wood: [] };
+        this.tiles = [];
+
+
+        // #region tile generation
+
+        for (var z = 0; z < 10; z++) {
+            var x = Math.floor(Math.random() * hrange / 2) * 2;
+            var y = Math.floor(Math.random() * vrange / 2) * 2;
+
+            var bombTile = new Tile(Tile.TYPE.BOMB, x, y);
+
+            this.grid.addChild(bombTile.container);
+            this.tiles.push(bombTile);
+        }
 
         this.player = new Player(this, 1, size);
 
-        // #region tile generation
         for (var x = 1; x < hrange; x += 2) {
             for (var y = 1; y < vrange; y += 2) {
-                var metalTile = new PIXI.Sprite(PIXI.utils.TextureCache["metal"]);
-                var shadowTile = new PIXI.Sprite(PIXI.utils.TextureCache["shadow"]);
+                var metalTile = new Tile(Tile.TYPE.METAL, x, y);
 
-                metalTile.x = x * 64;
-                metalTile.y = y * 64 + 64;
-                metalTile.anchor.set(0, 1);
-                metalTile.width = size;
-                metalTile.height = size * 1.25;
-
-                shadowTile.x = x * 64 - 8;
-                shadowTile.y = y * 64 + 80;
-                shadowTile.anchor.set(0, 1);
-                shadowTile.width = size * 1.25;
-                shadowTile.height = size * 1.25 * 0.6;
-
-                this.grid.addChild(shadowTile);
-                this.grid.addChild(metalTile);
-
-                this.tiles.metal.push(metalTile);
+                this.grid.addChild(metalTile.container);
+                this.tiles.push(metalTile);
             }
         }
         // #endregion
@@ -315,10 +313,10 @@ class Game {
     }
 
     tileAt(x, y) {
-        for(let mtile of this.tiles.metal) {
-            if (mtile.x <= x && mtile.x + mtile.width >= x)
-                if (mtile.y >= y && mtile.y - mtile.height <= y)
-                    return "metal";
+        for(let mtile of this.tiles) {
+            if (mtile.x * 64 <= x && mtile.x * 64 + 64 >= x)
+                if (mtile.y * 64 <= y && mtile.y * 64 + 64 >= y)
+                    return mtile;
         }
 
         return null;
@@ -340,6 +338,7 @@ class Player {
         this.sprite.height = size;
         this.vx = 0;
         this.vy = 0;
+        this.bomb = false;
 
         this.game.grid.addChild(this.sprite);
         
@@ -361,13 +360,14 @@ class Player {
     update(time, dtime) {
         if (!this.move.direction && this.keyboard.last && this.keyboard.last.isDown && time - this.move.lastTime > 0.25) {
             this.move.lastTime = time;
+            var target = { x: 0, y: 0 };
 
             switch (this.keyboard.last) {
                 case this.keyboard.left:
                     this.sprite.texture = PIXI.utils.TextureCache["player-right"];
 
                     if (this.x - 64 < 0) break;
-                    if (this.game.tileAt(this.x - 32, this.y + 32)) break;
+                    target = { x: this.x - 32, y: this.y + 32 };
 
                     this.move.direction = "left";
                     break;
@@ -375,7 +375,7 @@ class Player {
                     this.sprite.texture = PIXI.utils.TextureCache["player-left"];
 
                     if (this.x + 64 > this.game.bounds.width) break;
-                    if (this.game.tileAt(this.x + 96, this.y + 32)) break;
+                    target = { x: this.x + 96, y: this.y + 32 };
 
                     this.move.direction = "right";
                     break;
@@ -383,7 +383,7 @@ class Player {
                     this.sprite.texture = PIXI.utils.TextureCache["player-back"];
 
                     if (this.y - 64 < 0) break;
-                    if (this.game.tileAt(this.x + 32, this.y - 32)) break;
+                    target = { x: this.x + 32, y: this.y - 32 };
 
                     this.move.direction = "up";
                     break;
@@ -391,10 +391,26 @@ class Player {
                     this.sprite.texture = PIXI.utils.TextureCache["player-front"];
 
                     if (this.y + 64 > this.game.bounds.height) break;
-                    if (this.game.tileAt(this.x + 32, this.y + 96)) break;
+                    target = { x: this.x - 32, y: this.y + 96 };
 
                     this.move.direction = "down";
                     break;
+            }
+
+            var tile = this.game.tileAt(target.x, target.y);
+
+            if(tile) {
+                switch (tile.type) {
+                    case Tile.TYPE.METAL:
+                    case Tile.TYPE.WOOD:
+                        this.move.direction = null;
+                        break;
+                    case Tile.TYPE.BOMB:
+                        if (!this.pickBomb(tile))
+                            this.move.direction = null;
+
+                        break;
+                }
             }
 
             this.move.sx = this.x;
@@ -437,10 +453,94 @@ class Player {
         }
     }
 
+    /**
+     * 
+     * @param {Tile} tile
+     */
+    pickBomb(tile) {
+        if (this.bomb) return false;
+
+        tile.container.parent.removeChild(tile.container);
+        this.bomb = true;
+
+        return true;
+    }
+
     get x() { return this.sprite.x; }
     set x(x) { this.sprite.x = x; }
     get y() { return this.sprite.y; }
     set y(y) { this.sprite.y = y; }
+}
+
+class Tile {
+    static get TYPE() {
+        return { METAL: 1, WOOD: 2, BOMB: 3, SPEED: 4 };
+    }
+
+    constructor(type, x, y) {
+        let size = 64;
+
+        this.container = new PIXI.Container();
+        this.x = x;
+        this.y = y;
+        this.type = type;
+
+        switch (type) {
+            case Tile.TYPE.METAL:
+                var metalTile = new PIXI.Sprite(PIXI.utils.TextureCache["metal"]);
+                var shadowTile = new PIXI.Sprite(PIXI.utils.TextureCache["shadow"]);
+
+                metalTile.x = x * 64;
+                metalTile.y = y * 64 - 16;
+                metalTile.anchor.set(0, 0);
+                metalTile.width = size;
+                metalTile.height = size * 1.25;
+
+                shadowTile.x = x * 64 - 8;
+                shadowTile.y = y * 64 + 32;
+                shadowTile.anchor.set(0, 0);
+                shadowTile.width = size * 1.25;
+                shadowTile.height = size * 1.25 * 0.6;
+
+                this.container.addChild(shadowTile);
+                this.container.addChild(metalTile);
+                break;
+            case Tile.TYPE.WOOD:
+                var woodTile = new PIXI.Sprite(PIXI.utils.TextureCache["wood"]);
+                var shadowTile = new PIXI.Sprite(PIXI.utils.TextureCache["shadow"]);
+
+                woodTile.x = x * 64;
+                woodTile.y = y * 64;
+                woodTile.anchor.set(0, 0);
+                woodTile.width = size;
+                woodTile.height = size;
+
+                shadowTile.x = x * 64 - 8;
+                shadowTile.y = y * 64 + 32;
+                shadowTile.anchor.set(0, 0);
+                shadowTile.width = size * 1.25;
+                shadowTile.height = size * 1.25 * 0.6;
+
+                this.container.addChild(shadowTile);
+                this.container.addChild(woodTile);
+                break;
+            case Tile.TYPE.BOMB:
+                var bombTile = new PIXI.Sprite(PIXI.utils.TextureCache["bomb-tile"]);
+
+                bombTile.x = x * 64;
+                bombTile.y = y * 64;
+                bombTile.anchor.set(0, 0);
+                bombTile.width = size;
+                bombTile.height = size;
+
+                this.container.addChild(bombTile);
+                break;
+        }
+    }
+}
+
+class Bomb {
+
 }
 
 var game = new Game();
