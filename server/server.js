@@ -13,7 +13,14 @@ app.engine('.hbs', exphbs({defaultLayout: 'standard', extname: '.hbs'}));
 app.set('view engine', '.hbs');
 
 app.get('/lobby/:id', function(req, res) {
-    res.render('lobby', {"lobby-id": req.params.id});
+    gameServer.lobbies.forEach(function(data) {
+        console.log(data.id); 
+    })
+    if(gameServer.lobbies.get(req.params.id) != null) {
+        res.render('lobby');
+    } else {
+        res.redirect("/ws");
+    }
 });
 
 var gameServer = new GameServer();
@@ -21,26 +28,63 @@ var gameServer = new GameServer();
 var count = 0;
 
 io.on('connection', function(socket) {
+    /******************************THIS DEALS WITH GAME CODE AND SYNCING************************/
     count++;
     var newPlayer = new Player("randomPlayer" + count, socket);
 
     //adds a new player/connects with an existing player
-    gameServer.addPlayer(newPlayer);
-    socket.emit('player-assign', {
-            "player-name": newPlayer.name,
-            "player-id" : newPlayer.id
+
+    socket.on('player-connect', function(data) {
+        var lobby = gameServer.lobbies.get(data['lobby-id']);
+        gameServer.addPlayer(newPlayer);
+        lobby.addPlayer(newPlayer);
+
+        socket.emit('player-assign', {
+                "player-name": newPlayer.name,
+                "player-id" : newPlayer.id
+        });
+
+        var players = []
+        lobby.players.forEach(function(player) {
+            players.push({
+                "player-id": player.id,
+                "player-name" : player.name,
+                "player-host" : (lobby.host.id == player.id)
+            })
+        });
+
+        socket.emit('lobby-info', {
+            "lobby-id": lobby.id,
+            "lobby-name": lobby.name,
+            "lobby-players": players
+        });
+        console.log('Player connected: ' + newPlayer.name);
+
+        //player
+        socket.on('disconnect', function() {
+            console.log('Player disconnected: ' + newPlayer.name);
+            lobby.remove(newPlayer);
+        })
     });
 
-    console.log('Player connected: ' + newPlayer.name);
+    //use 'game-play-event' message header to transmit any events 
+    //you need to retransmit to all players in lobby
+    // needs 'game-lobby', 'game-player', 'game-data' json things
+    socket.on('lobby-event', function(data) {
+        var lobby = gameServer.lobbies.get(data['game-lobby']);
+        lobby.players.forEach(function(player) {
+            if(player.id != data['game-player']) {
+                player.socket.emit('lobby-event', data);
+            }           
+        });
+    });
 
-    //player
-    socket.on('disconnect', function() {
-        console.log('Player disconnected: ' + newPlayer.name);
-    })
+    /*********************************THIS DEALS WITH GETTING LOBBIES***********************/
 
     //creates game lobby
     socket.on('game-lobby-create', function(data) {
         var lobby = new Lobby("a small lobby " + count);
+        lobby.setHost(newPlayer);
         gameServer.addLobby(lobby);
         console.log('lobby created: ' + lobby.name);
         socket.emit('game-lobby-created', {
@@ -64,18 +108,6 @@ io.on('connection', function(socket) {
         });
         socket.emit('game-lobbies', lobbyJSON);
         console.log('sent lobbies');    
-    });
-
-    //use 'game-play-event' message header to transmit any events 
-    //you need to retransmit to all players in lobby
-    // needs 'game-lobby', 'game-player', 'game-data' json things
-    socket.on('game-play-event', function(data) {
-        var lobby = gameServer.lobbies.get(data['game-lobby']);
-        lobby.players.forEach(function(player) {
-            if(player.id != data['game-player']) {
-                player.socket.emit('game-play-event', data);
-            }           
-        });
     });
 });
 

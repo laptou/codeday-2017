@@ -13,6 +13,23 @@
         <script src="/js/vendor/jquery-3.1.1.js"></script>
         <script src="/js/vendor/bootstrap.js"></script>
         <script src="/js/lobby.js"></script>
+        <style>
+            #game {
+                height: 100%; 
+                width: 100%;
+                min-height:500px;
+                min-width:500px;
+            }
+
+            #game * {
+                max-height: 100%; max-width: 100%;
+            }
+        </style>
+        <script id="playerListTemplate" type="text/x-handlebars-template">
+            <li class="list-group-item">
+                {{#if player-host}}<h2>HOST - </h2>{{/if}}<span id="{{player-id}}>{{player-name}}"></span>
+            </li>
+        </script>
     </head>
     <body>
         <nav class="navbar navbar-default" role="navigation">
@@ -32,12 +49,11 @@
         </nav>
         <div class="row">
             <div class="col-md-10">
-                <div id="game" style="">
-    
-                </div>
+                <div id="game" style=""></div>
             </div>
             <div class="col-md-2">
-                {{ lobby-id }}
+                <h1 id="lobby-name">Loading...</h1>
+                <ul class="list-group" id="players"></ul>
             </div>
         </div>
 
