@@ -4,6 +4,9 @@ $( document ).ready(function() {
     var lobbyTemplate = Handlebars.compile($('#lobby-template').html());
 
     var socket = io.connect('http://localhost');
+
+    socket.emit('player-connect');
+
     socket.on('player-assign', function(data) {
         $('#player-name').text("Welcome " + data["player-name"]);
         localStorage.setItem('player-id', data['player-id']);
@@ -18,12 +21,12 @@ $( document ).ready(function() {
             $('#lobbies').append(lobbyTemplate(lobbies[i]))
         }
     });
-    
+
     $('#createLobby').on('click', function() {
         console.log('lobby created');
         socket.emit('game-createLobby');
         getLobbies();
-    });
+    }); 
 
     getLobbies();
     function getLobbies() {
