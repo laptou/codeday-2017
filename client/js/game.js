@@ -43,7 +43,7 @@ class Keyboard {
         //The `downHandler`
         this.downHandler = function (event) {
             if (event.keyCode === this.code) {
-                if (this.isUp && this.press) this.press();
+                if (this.isUp && this.onpress) this.onpress();
                 this.isDown = true;
                 this.isUp = false;
 
@@ -54,7 +54,7 @@ class Keyboard {
         //The `upHandler`
         this.upHandler = function (event) {
             if (event.keyCode === this.code) {
-                if (this.isDown && this.release) this.release();
+                if (this.isDown && this.onrelease) this.onrelease();
                 this.isDown = false;
                 this.isUp = true;
 
@@ -69,7 +69,6 @@ class Keyboard {
         window.addEventListener(
           "keyup", this.upHandler.bind(this), false
         );
-        return key;
     }
 }
 
@@ -105,6 +104,9 @@ class Game {
     load() {
         PIXI.loader
             .add("logo", "/img/logo.png")
+            .add("metal", "/img/metal.png")
+            .add("stone", "/img/stone.png")
+            .add("shadow", "/img/shadow.png")
             .add("tree-light", "/img/tree-light.png")
             .add("tree-dark", "/img/tree-dark.png")
             .add("player-right", "/img/player-right.png")
@@ -144,6 +146,7 @@ class Game {
 
                 break;
             case 2:
+                this.player.update(time, dtime);
                 break;
         }
 
@@ -252,8 +255,12 @@ class Game {
         // #region grid generation
 
         let size = 64;
-        let hrange = Math.floor((game.resolution.x - 192) / size),
-            vrange = Math.floor((game.resolution.y - 256) / size);
+        this.bounds = { x: 96, y: 140, width: (game.resolution.x - 192), height: (game.resolution.y - 256) };
+        this.grid = new PIXI.Container();
+        this.grid.position.set(this.bounds.x, this.bounds.y);
+
+        let hrange = Math.floor(this.bounds.width / size),
+            vrange = Math.floor(this.bounds.height / size);
 
         var darkTile = new PIXI.Graphics();
         darkTile.beginFill(0, 0.25);
@@ -265,16 +272,56 @@ class Game {
             for (var x = 0; x < hrange; x++) {
                 if ((x + (y % 2)) % 2 == 0) {
                     var sprite = new PIXI.Sprite(darkTex);
-                    sprite.x = 96 + x * size;
-                    sprite.y = 140 + y * size;
-                    this.root.addChild(sprite);
+                    sprite.x = x * size;
+                    sprite.y = y * size;
+                    this.grid.addChild(sprite);
                 }
             }
         }
 
         // #endregion
 
-        var player = new Player(this, 0, size);
+        this.tiles = { metal: [], wood: [] };
+
+        this.player = new Player(this, 1, size);
+
+        // #region tile generation
+        for (var x = 1; x < hrange; x += 2) {
+            for (var y = 1; y < vrange; y += 2) {
+                var metalTile = new PIXI.Sprite(PIXI.utils.TextureCache["metal"]);
+                var shadowTile = new PIXI.Sprite(PIXI.utils.TextureCache["shadow"]);
+
+                metalTile.x = x * 64;
+                metalTile.y = y * 64 + 64;
+                metalTile.anchor.set(0, 1);
+                metalTile.width = size;
+                metalTile.height = size * 1.25;
+
+                shadowTile.x = x * 64 - 8;
+                shadowTile.y = y * 64 + 80;
+                shadowTile.anchor.set(0, 1);
+                shadowTile.width = size * 1.25;
+                shadowTile.height = size * 1.25 * 0.6;
+
+                this.grid.addChild(shadowTile);
+                this.grid.addChild(metalTile);
+
+                this.tiles.metal.push(metalTile);
+            }
+        }
+        // #endregion
+
+        this.root.addChild(this.grid);
+    }
+
+    tileAt(x, y) {
+        for(let mtile of this.tiles.metal) {
+            if (mtile.x <= x && mtile.x + mtile.width >= x)
+                if (mtile.y >= y && mtile.y - mtile.height <= y)
+                    return "metal";
+        }
+
+        return null;
     }
 }
 
@@ -291,19 +338,103 @@ class Player {
         this.sprite.tint = tints[index];
         this.sprite.width = size;
         this.sprite.height = size;
+        this.vx = 0;
+        this.vy = 0;
 
-        this.game.root.addChild(this.sprite);
+        this.game.grid.addChild(this.sprite);
         
-        var left = new Keyboard(37),
-            right = new Keyboard(39),
-            up = new Keyboard(38),
-            down = new Keyboard(40);
+        this.keyboard = {
+            left: new Keyboard(37),
+            right: new Keyboard(39),
+            up: new Keyboard(38),
+            down: new Keyboard(40),
+            last: null
+        };
 
-        
+        this.keyboard.left.onpress = () => this.keyboard.last = this.keyboard.left;
+        this.keyboard.down.onpress = () => this.keyboard.last = this.keyboard.down;
+        this.keyboard.up.onpress = () => this.keyboard.last = this.keyboard.up;
+        this.keyboard.right.onpress = () => this.keyboard.last = this.keyboard.right;
+        this.move = { lastTime: 0, direction: null, sx: NaN, sy: NaN };
     }
 
     update(time, dtime) {
+        if (!this.move.direction && this.keyboard.last && this.keyboard.last.isDown && time - this.move.lastTime > 0.25) {
+            this.move.lastTime = time;
 
+            switch (this.keyboard.last) {
+                case this.keyboard.left:
+                    this.sprite.texture = PIXI.utils.TextureCache["player-right"];
+
+                    if (this.x - 64 < 0) break;
+                    if (this.game.tileAt(this.x - 32, this.y + 32)) break;
+
+                    this.move.direction = "left";
+                    break;
+                case this.keyboard.right:
+                    this.sprite.texture = PIXI.utils.TextureCache["player-left"];
+
+                    if (this.x + 64 > this.game.bounds.width) break;
+                    if (this.game.tileAt(this.x + 96, this.y + 32)) break;
+
+                    this.move.direction = "right";
+                    break;
+                case this.keyboard.up:
+                    this.sprite.texture = PIXI.utils.TextureCache["player-back"];
+
+                    if (this.y - 64 < 0) break;
+                    if (this.game.tileAt(this.x + 32, this.y - 32)) break;
+
+                    this.move.direction = "up";
+                    break;
+                case this.keyboard.down:
+                    this.sprite.texture = PIXI.utils.TextureCache["player-front"];
+
+                    if (this.y + 64 > this.game.bounds.height) break;
+                    if (this.game.tileAt(this.x + 32, this.y + 96)) break;
+
+                    this.move.direction = "down";
+                    break;
+            }
+
+            this.move.sx = this.x;
+            this.move.sy = this.y;
+        }
+
+        if (this.move.direction) {
+            if (time - this.move.lastTime <= 0.25) {
+                switch (this.move.direction) {
+                    case "left":
+                        this.x = this.move.sx - 64 * (time - this.move.lastTime) * 4;
+                        break;
+                    case "right":
+                        this.x = this.move.sx + 64 * (time - this.move.lastTime) * 4;
+                        break;
+                    case "up":
+                        this.y = this.move.sy - 64 * (time - this.move.lastTime) * 4;
+                        break;
+                    case "down":
+                        this.y = this.move.sy + 64 * (time - this.move.lastTime) * 4;
+                        break;
+                }
+            } else {
+                switch (this.move.direction) {
+                    case "left":
+                        this.x = this.move.sx - 64;
+                        break;
+                    case "right":
+                        this.x = this.move.sx + 64;
+                        break;
+                    case "up":
+                        this.y = this.move.sy - 64;
+                        break;
+                    case "down":
+                        this.y = this.move.sy + 64;
+                        break;
+                }
+                this.move.direction = null;
+            }
+        }
     }
 
     get x() { return this.sprite.x; }
@@ -311,8 +442,6 @@ class Player {
     get y() { return this.sprite.y; }
     set y(y) { this.sprite.y = y; }
 }
-
-
 
 var game = new Game();
 game.load();
