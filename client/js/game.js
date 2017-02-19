@@ -104,6 +104,9 @@ class Game {
     load() {
         PIXI.loader
             .add("logo", "/img/logo.png")
+            .add("metal", "/img/metal.png")
+            .add("stone", "/img/stone.png")
+            .add("shadow", "/img/shadow.png")
             .add("tree-light", "/img/tree-light.png")
             .add("tree-dark", "/img/tree-dark.png")
             .add("player-right", "/img/player-right.png")
@@ -253,6 +256,9 @@ class Game {
 
         let size = 64;
         this.bounds = { x: 96, y: 140, width: (game.resolution.x - 192), height: (game.resolution.y - 256) };
+        this.grid = new PIXI.Container();
+        this.grid.position.set(this.bounds.x, this.bounds.y);
+
         let hrange = Math.floor(this.bounds.width / size),
             vrange = Math.floor(this.bounds.height / size);
 
@@ -266,18 +272,56 @@ class Game {
             for (var x = 0; x < hrange; x++) {
                 if ((x + (y % 2)) % 2 == 0) {
                     var sprite = new PIXI.Sprite(darkTex);
-                    sprite.x = 96 + x * size;
-                    sprite.y = 140 + y * size;
-                    this.root.addChild(sprite);
+                    sprite.x = x * size;
+                    sprite.y = y * size;
+                    this.grid.addChild(sprite);
                 }
             }
         }
 
         // #endregion
 
+        this.tiles = { metal: [], wood: [] };
+
         this.player = new Player(this, 1, size);
-        this.player.x = this.bounds.x + 32;
-        this.player.y = this.bounds.y + 32;
+
+        // #region tile generation
+        for (var x = 1; x < hrange; x += 2) {
+            for (var y = 1; y < vrange; y += 2) {
+                var metalTile = new PIXI.Sprite(PIXI.utils.TextureCache["metal"]);
+                var shadowTile = new PIXI.Sprite(PIXI.utils.TextureCache["shadow"]);
+
+                metalTile.x = x * 64;
+                metalTile.y = y * 64 + 64;
+                metalTile.anchor.set(0, 1);
+                metalTile.width = size;
+                metalTile.height = size * 1.25;
+
+                shadowTile.x = x * 64 - 8;
+                shadowTile.y = y * 64 + 80;
+                shadowTile.anchor.set(0, 1);
+                shadowTile.width = size * 1.25;
+                shadowTile.height = size * 1.25 * 0.6;
+
+                this.grid.addChild(shadowTile);
+                this.grid.addChild(metalTile);
+
+                this.tiles.metal.push(metalTile);
+            }
+        }
+        // #endregion
+
+        this.root.addChild(this.grid);
+    }
+
+    tileAt(x, y) {
+        for(let mtile of this.tiles.metal) {
+            if (mtile.x <= x && mtile.x + mtile.width >= x)
+                if (mtile.y >= y && mtile.y - mtile.height <= y)
+                    return "metal";
+        }
+
+        return null;
     }
 }
 
@@ -294,11 +338,10 @@ class Player {
         this.sprite.tint = tints[index];
         this.sprite.width = size;
         this.sprite.height = size;
-        this.sprite.anchor.set(0.5);
         this.vx = 0;
         this.vy = 0;
 
-        this.game.root.addChild(this.sprite);
+        this.game.grid.addChild(this.sprite);
         
         this.keyboard = {
             left: new Keyboard(37),
@@ -321,27 +364,35 @@ class Player {
 
             switch (this.keyboard.last) {
                 case this.keyboard.left:
-                    if (this.x - 64 < this.game.bounds.x) break;
-
                     this.sprite.texture = PIXI.utils.TextureCache["player-right"];
+
+                    if (this.x - 64 < 0) break;
+                    if (this.game.tileAt(this.x - 32, this.y + 32)) break;
+
                     this.move.direction = "left";
                     break;
                 case this.keyboard.right:
-                    if (this.x + 64 > this.game.bounds.x + this.game.bounds.width) break;
-
                     this.sprite.texture = PIXI.utils.TextureCache["player-left"];
+
+                    if (this.x + 64 > this.game.bounds.width) break;
+                    if (this.game.tileAt(this.x + 96, this.y + 32)) break;
+
                     this.move.direction = "right";
                     break;
                 case this.keyboard.up:
-                    if (this.y - 64 < this.game.bounds.y) break;
-
                     this.sprite.texture = PIXI.utils.TextureCache["player-back"];
+
+                    if (this.y - 64 < 0) break;
+                    if (this.game.tileAt(this.x + 32, this.y - 32)) break;
+
                     this.move.direction = "up";
                     break;
                 case this.keyboard.down:
-                    if (this.y + 64 > this.game.bounds.y + this.game.bounds.height) break;
-
                     this.sprite.texture = PIXI.utils.TextureCache["player-front"];
+
+                    if (this.y + 64 > this.game.bounds.height) break;
+                    if (this.game.tileAt(this.x + 32, this.y + 96)) break;
+
                     this.move.direction = "down";
                     break;
             }
