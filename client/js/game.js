@@ -43,7 +43,7 @@ class Keyboard {
         //The `downHandler`
         this.downHandler = function (event) {
             if (event.keyCode === this.code) {
-                if (this.isUp && this.press) this.press();
+                if (this.isUp && this.onpress) this.onpress();
                 this.isDown = true;
                 this.isUp = false;
 
@@ -54,7 +54,7 @@ class Keyboard {
         //The `upHandler`
         this.upHandler = function (event) {
             if (event.keyCode === this.code) {
-                if (this.isDown && this.release) this.release();
+                if (this.isDown && this.onrelease) this.onrelease();
                 this.isDown = false;
                 this.isUp = true;
 
@@ -69,7 +69,6 @@ class Keyboard {
         window.addEventListener(
           "keyup", this.upHandler.bind(this), false
         );
-        return key;
     }
 }
 
@@ -144,6 +143,7 @@ class Game {
 
                 break;
             case 2:
+                this.player.update(time, dtime);
                 break;
         }
 
@@ -252,8 +252,9 @@ class Game {
         // #region grid generation
 
         let size = 64;
-        let hrange = Math.floor((game.resolution.x - 192) / size),
-            vrange = Math.floor((game.resolution.y - 256) / size);
+        this.bounds = { x: 96, y: 140, width: (game.resolution.x - 192), height: (game.resolution.y - 256) };
+        let hrange = Math.floor(this.bounds.width / size),
+            vrange = Math.floor(this.bounds.height / size);
 
         var darkTile = new PIXI.Graphics();
         darkTile.beginFill(0, 0.25);
@@ -274,7 +275,9 @@ class Game {
 
         // #endregion
 
-        var player = new Player(this, 0, size);
+        this.player = new Player(this, 1, size);
+        this.player.x = this.bounds.x + 32;
+        this.player.y = this.bounds.y + 32;
     }
 }
 
@@ -291,19 +294,96 @@ class Player {
         this.sprite.tint = tints[index];
         this.sprite.width = size;
         this.sprite.height = size;
+        this.sprite.anchor.set(0.5);
+        this.vx = 0;
+        this.vy = 0;
 
         this.game.root.addChild(this.sprite);
         
-        var left = new Keyboard(37),
-            right = new Keyboard(39),
-            up = new Keyboard(38),
-            down = new Keyboard(40);
+        this.keyboard = {
+            left: new Keyboard(37),
+            right: new Keyboard(39),
+            up: new Keyboard(38),
+            down: new Keyboard(40),
+            last: null
+        };
 
-        
+        this.keyboard.left.onpress = () => this.keyboard.last = this.keyboard.left;
+        this.keyboard.down.onpress = () => this.keyboard.last = this.keyboard.down;
+        this.keyboard.up.onpress = () => this.keyboard.last = this.keyboard.up;
+        this.keyboard.right.onpress = () => this.keyboard.last = this.keyboard.right;
+        this.move = { lastTime: 0, direction: null, sx: NaN, sy: NaN };
     }
 
     update(time, dtime) {
+        if (!this.move.direction && this.keyboard.last && this.keyboard.last.isDown && time - this.move.lastTime > 0.25) {
+            this.move.lastTime = time;
 
+            switch (this.keyboard.last) {
+                case this.keyboard.left:
+                    if (this.x - 64 < this.game.bounds.x) break;
+
+                    this.sprite.texture = PIXI.utils.TextureCache["player-right"];
+                    this.move.direction = "left";
+                    break;
+                case this.keyboard.right:
+                    if (this.x + 64 > this.game.bounds.x + this.game.bounds.width) break;
+
+                    this.sprite.texture = PIXI.utils.TextureCache["player-left"];
+                    this.move.direction = "right";
+                    break;
+                case this.keyboard.up:
+                    if (this.y - 64 < this.game.bounds.y) break;
+
+                    this.sprite.texture = PIXI.utils.TextureCache["player-back"];
+                    this.move.direction = "up";
+                    break;
+                case this.keyboard.down:
+                    if (this.y + 64 > this.game.bounds.y + this.game.bounds.height) break;
+
+                    this.sprite.texture = PIXI.utils.TextureCache["player-front"];
+                    this.move.direction = "down";
+                    break;
+            }
+
+            this.move.sx = this.x;
+            this.move.sy = this.y;
+        }
+
+        if (this.move.direction) {
+            if (time - this.move.lastTime <= 0.25) {
+                switch (this.move.direction) {
+                    case "left":
+                        this.x = this.move.sx - 64 * (time - this.move.lastTime) * 4;
+                        break;
+                    case "right":
+                        this.x = this.move.sx + 64 * (time - this.move.lastTime) * 4;
+                        break;
+                    case "up":
+                        this.y = this.move.sy - 64 * (time - this.move.lastTime) * 4;
+                        break;
+                    case "down":
+                        this.y = this.move.sy + 64 * (time - this.move.lastTime) * 4;
+                        break;
+                }
+            } else {
+                switch (this.move.direction) {
+                    case "left":
+                        this.x = this.move.sx - 64;
+                        break;
+                    case "right":
+                        this.x = this.move.sx + 64;
+                        break;
+                    case "up":
+                        this.y = this.move.sy - 64;
+                        break;
+                    case "down":
+                        this.y = this.move.sy + 64;
+                        break;
+                }
+                this.move.direction = null;
+            }
+        }
     }
 
     get x() { return this.sprite.x; }
@@ -311,8 +391,6 @@ class Player {
     get y() { return this.sprite.y; }
     set y(y) { this.sprite.y = y; }
 }
-
-
 
 var game = new Game();
 game.load();
