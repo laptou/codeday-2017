@@ -1033,6 +1033,7 @@ $(function() {
     game.init();
     game.start();
 
-    if ($('#lobby-game-start').length > 0) $('#lobby-game-start').click(() => game.enter());
+    if ($('#lobby-game-start').length > 0) 
+        $('#lobby-game-start').click(() => game.enter());
     else game.enter();
 });
