@@ -31,6 +31,7 @@ var vector = {
         return vector.mult(vec, 1 / (vector.len(vec) || 1));
     }
 };
+let tints = [];
 
 class Game {
     constructor() {
@@ -66,6 +67,10 @@ class Game {
             .add("logo", "/img/logo.png")
             .add("tree-light", "/img/tree-light.png")
             .add("tree-dark", "/img/tree-dark.png")
+            .add("player-right", "/img/player-right.png")
+            .add("player-left", "/img/player-left.png")
+            .add("player-top", "/img/player-top.png")
+            .add("player-bottom", "/img/player-bottom.png")
             .load(this.init.bind(this));
     }
 
@@ -218,9 +223,7 @@ class Game {
 
         for (var y = 0; y < vrange; y++) {
             for (var x = 0; x < hrange; x++) {
-                var i = y * hrange + x;
-
-                if (i % 2 == 0) {
+                if ((x + (y % 2)) % 2 == 0) {
                     var sprite = new PIXI.Sprite(darkTex);
                     sprite.x = 96 + x * size;
                     sprite.y = 140 + y * size;
@@ -232,6 +235,30 @@ class Game {
         // #endregion
     }
 }
+
+class Player {
+    constructor(index) {
+        this.sprite = new PIXI.Sprite(PIXI.utils.TextureCache["player-front"]);
+        this.sprite.tint = 0xFFFFFF;
+    }
+
+    update(time, dtime) {
+
+    }
+
+    get x() { return this.sprite.x; }
+    set x(x) { this.sprite.x = x; }
+    get y() { return this.sprite.y; }
+    set y(y) { this.sprite.y = y; }
+}
+
+class Keyboard {
+    static penis() {
+
+    }
+}
+
+Keyboard.penis();
 
 var game = new Game();
 game.load();
