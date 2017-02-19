@@ -590,8 +590,6 @@ class Player {
 
                 switch (this.keyboard.last) {
                     case this.keyboard.left:
-                        
-
                         if (this.x - 1 < 0) break;
                         target = { x: this.x - 1, y: this.y };
 
@@ -599,8 +597,6 @@ class Player {
                         this.facing = "left";
                         break;
                     case this.keyboard.right:
-                        this.sprite.texture = PIXI.utils.TextureCache["player-right"];
-
                         if (this.x + 1 >= this.game.bounds.width / this.game.bounds.size) break;
                         target = { x: this.x + 1, y: this.y };
 
@@ -608,8 +604,6 @@ class Player {
                         this.facing = "right";
                         break;
                     case this.keyboard.up:
-                        this.sprite.texture = PIXI.utils.TextureCache["player-back"];
-
                         if (this.y - 1 < 0) break;
                         target = { x: this.x, y: this.y - 1 };
 
@@ -617,8 +611,6 @@ class Player {
                         this.facing = "up";
                         break;
                     case this.keyboard.down:
-                        this.sprite.texture = PIXI.utils.TextureCache["player-front"];
-
                         if (this.y + 1 >= this.game.bounds.height / this.game.bounds.size) break;
                         target = { x: this.x, y: this.y + 1 };
 
@@ -716,6 +708,15 @@ class Player {
         switch (this.facing) {
             case "left":
                 this.sprite.texture = PIXI.utils.TextureCache["player-left"];
+                break;
+            case "right":
+                this.sprite.texture = PIXI.utils.TextureCache["player-right"];
+                break;
+            case "up":
+                this.sprite.texture = PIXI.utils.TextureCache["player-up"];
+                break;
+            case "down":
+                this.sprite.texture = PIXI.utils.TextureCache["player-down"];
                 break;
         }
     }
