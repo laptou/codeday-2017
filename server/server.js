@@ -48,8 +48,7 @@ io.on('connection', function(socket) {
         lobby.players.forEach(function(player) {
             players.push({
                 "player-id": player.id,
-                "player-name" : player.name,
-                "player-host" : (lobby.host.id == player.id)
+                "player-name" : player.name
             })
         });
 
@@ -63,7 +62,7 @@ io.on('connection', function(socket) {
         //player
         socket.on('disconnect', function() {
             console.log('Player disconnected: ' + newPlayer.name);
-            lobby.remove(newPlayer);
+            lobby.removePlayer(newPlayer);
         })
     });
 
@@ -84,7 +83,6 @@ io.on('connection', function(socket) {
     //creates game lobby
     socket.on('game-lobby-create', function(data) {
         var lobby = new Lobby("a small lobby " + count);
-        lobby.setHost(newPlayer);
         gameServer.addLobby(lobby);
         console.log('lobby created: ' + lobby.name);
         socket.emit('game-lobby-created', {
@@ -100,11 +98,13 @@ io.on('connection', function(socket) {
             "lobbies" : []
         }
         gameServer.lobbies.forEach(function(lobby) {
-            lobbyJSON['lobbies'].push({
-                "lobby-name" : lobby.name,
-                "lobby-id" : lobby.id,
-                "lobby-players" : lobby.players.length
-            });
+            if(lobby.players.length < 4) {
+                lobbyJSON['lobbies'].push({
+                    "lobby-name" : lobby.name,
+                    "lobby-id" : lobby.id,
+                    "lobby-players" : lobby.players.length
+                });
+            }
         });
         socket.emit('game-lobbies', lobbyJSON);
         console.log('sent lobbies');    

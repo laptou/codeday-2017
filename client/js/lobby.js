@@ -17,9 +17,12 @@ $( document ).ready(function() {
         console.log(data);
         $('#lobby-name').text(data['lobby-name']);
         lobbyID = data['lobby-id'];
-        for(var i = 0; i < data['lobby-players'].length; i++) {
-            $('#players').append(lobbyPlayerTemplate(data['lobby-players'][i]))
-        }
+        data['lobby-players'].forEach(function(player) {
+            console.log(player['player-name']);
+            $('#players').append("<li class='list-group-item'>" + 
+            (player['player-host'] ? "HOST" : "") +
+            player['player-name'] + "</li>");
+        });
     });
 
     socket.on('lobby-event', function(data) {

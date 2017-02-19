@@ -26,8 +26,9 @@
             }
         </style>
         <script id="playerListTemplate" type="text/x-handlebars-template">
+            {{ player-name }} 
             <li class="list-group-item">
-                {{#if player-host}}<h2>HOST - </h2>{{/if}}<span id="{{player-id}}>{{player-name}}"></span>
+                <span id="{{player-id}}>{{player-name}}"></span>
             </li>
         </script>
     </head>
