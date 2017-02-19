@@ -403,14 +403,12 @@ class Game {
             new Powerup(this, Powerup.TYPE.BOMB, 10, 8),
             new Powerup(this, Powerup.TYPE.BOMB, 12, 6)];
 
-        this.players = [new Player(this, false, 0, 0, this.bounds.size), new Player(this, false, 1, 1, this.bounds.size)];
-
-        this.players[1].x = 12;
-        this.players[1].y = 8;
+        
 
         if (server) {
             var index = server.allPlayers.findIndex(p => p['player-id'] == server.playerID);
-            this.players = [new Player(this, false, index, 0, this.bounds.size)];
+            var myPlayer = new Player(this, false, index, 0, this.bounds.size);
+            this.players = [myPlayer];
 
             var i = 0;
             for(let playerOnline of server.allPlayers) {
@@ -422,6 +420,10 @@ class Game {
 
                 i++;
             }
+
+            var indexfn = p => server.allPlayers.findIndex(sp => sp['player-id'] == p.id);
+            
+            this.players.sort((a, b) => indexfn(a) < indexfn(b) ? -1 : 1);
 
             this.players[1].x = 12;
             this.players[1].y = 8;
@@ -435,6 +437,11 @@ class Game {
                 this.players[3].x = 12;
                 this.players[3].y = 0;
             }
+        } else {
+            this.players = [new Player(this, false, 0, 0, this.bounds.size), new Player(this, false, 1, 1, this.bounds.size)];
+
+            this.players[1].x = 12;
+            this.players[1].y = 8;
         }
 
 
@@ -552,10 +559,10 @@ class Player {
                 () => this.dropBomb((performance.now() - this.game.time.start) / 1000);
         } else {
             game.socket.on('lobby-event', data => {
-                if (data.playerID == this.id) {
+                if (data['player-id'] == this.id) {
                     if (data.data.event.startsWith("move")) {
-                        this.move.direction = "left";
-                        this.facing = "left";
+                        this.move.direction = data.data.event.split()[1];
+                        this.facing = data.data.event.split()[1];
                     }
 
                     if (data.data.event.startsWith("bomb"))
@@ -574,7 +581,6 @@ class Player {
         }
 
         if (!this.online) {
-
             if (this.keyboard.last && !this.keyboard.last.isDown)
                 this.move.keepGoing = false;
 
@@ -584,7 +590,7 @@ class Player {
 
                 switch (this.keyboard.last) {
                     case this.keyboard.left:
-                        this.sprite.texture = PIXI.utils.TextureCache["player-left"];
+                        
 
                         if (this.x - 1 < 0) break;
                         target = { x: this.x - 1, y: this.y };
@@ -703,6 +709,14 @@ class Player {
             this.sprite.x = this.x * this.game.bounds.size;
             this.sprite.y = this.y * this.game.bounds.size;
             this.moving = false;
+        }
+    }
+
+    updateSprite() {
+        switch (this.facing) {
+            case "left":
+                this.sprite.texture = PIXI.utils.TextureCache["player-left"];
+                break;
         }
     }
 
