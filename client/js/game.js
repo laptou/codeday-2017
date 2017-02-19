@@ -129,6 +129,8 @@ class Game {
 
         let hspace = 48, vspace = 14;
 
+        // #region tree generation
+
         for (var i = 1; i <= Math.ceil(game.resolution.x / hspace) ; i += 2) { // top dark
             var tree = new PIXI.Sprite(PIXI.utils.TextureCache["tree-dark"]);
             tree.x = i * hspace;
@@ -191,7 +193,6 @@ class Game {
             this.root.addChild(tree);
         }
 
-
         for (var i = 1; i <= Math.ceil(game.resolution.x / hspace) ; i += 2) { // bottom dark
             var tree = new PIXI.Sprite(PIXI.utils.TextureCache["tree-dark"]);
             tree.x = i * hspace;
@@ -200,6 +201,35 @@ class Game {
 
             this.root.addChild(tree);
         }
+
+        // #endregion
+
+        // #region grid generation
+
+        let size = 64;
+        let hrange = Math.floor((game.resolution.x - 192) / size),
+            vrange = Math.floor((game.resolution.y - 256) / size);
+
+        var darkTile = new PIXI.Graphics();
+        darkTile.beginFill(0, 0.25);
+        darkTile.drawRect(0, 0, size, size);
+        darkTile.endFill();
+        var darkTex = darkTile.generateCanvasTexture();
+
+        for (var y = 0; y < vrange; y++) {
+            for (var x = 0; x < hrange; x++) {
+                var i = y * hrange + x;
+
+                if (i % 2 == 0) {
+                    var sprite = new PIXI.Sprite(darkTex);
+                    sprite.x = 96 + x * size;
+                    sprite.y = 140 + y * size;
+                    this.root.addChild(sprite);
+                }
+            }
+        }
+
+        // #endregion
     }
 }
 
