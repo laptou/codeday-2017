@@ -1,10 +1,12 @@
+
+var lobbyID;
+var playerID; 
+var socket = io.connect('http://localhost');
+
 $( document ).ready(function() {
     console.log('window loaded');
     
-    var socket = io.connect('http://localhost');
     var lobbyPlayerTemplate = Handlebars.compile($('#playerListTemplate').html());
-    var lobbyID;
-    var playerID; 
 
     socket.emit('player-connect', {
         "lobby-id": window.location.pathname.replace('/lobby/','')
