@@ -17,16 +17,18 @@ $( document ).ready(function() {
         var lobbies = data['lobbies'];
 
         $('#lobbies').text("");
-        for(var i = 0; i < data['lobby-num']; i++) {
+        for(var i = 0; i < lobbies.length; i++) {
             $('#lobbies').append(lobbyTemplate(lobbies[i]))
         }
     });
 
     $('#createLobby').on('click', function() {
         console.log('lobby created');
-        socket.emit('game-createLobby');
-        getLobbies();
+        socket.emit('game-lobby-create');
     }); 
+    socket.on('game-lobby-created', function(data) {
+        $( location ).attr('href', '/lobby/' + data['game-lobby']);
+    });
 
     getLobbies();
     function getLobbies() {

@@ -1,6 +1,6 @@
 var path = require('path');
 var express = require('express');
-var exphbs = require('express-handlebars');
+var exphbs  = require('express-handlebars');
 var app = express();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
@@ -9,16 +9,17 @@ var Player = require('./player.js');
 var Lobby = require('./lobby.js');
 
 app.use('/', express.static(path.join(__dirname, '../client')));
-app.engine('handlebars', exphbs({defaultLayout: 'main'}));
-app.set('view engine', 'handlebars');  
+app.engine('.hbs', exphbs({defaultLayout: 'standard', extname: '.hbs'}));
+app.set('view engine', '.hbs');
 
-app.get('/lobby/:uuid'), function(req, res) {
-        
-}
+app.get('/lobby/:uuid', function(req, res) {
+    res.render('lobby');
+});
 
 var gameServer = new GameServer();
 
 var count = 0;
+
 io.on('connection', function(socket) {
     count++;
     var newPlayer = new Player("randomPlayer" + count, socket);
@@ -32,17 +33,19 @@ io.on('connection', function(socket) {
 
     console.log('Player connected: ' + newPlayer.name);
 
-
     //player
     socket.on('disconnect', function() {
         console.log('Player disconnected: ' + newPlayer.name);
     })
 
     //creates game lobby
-    socket.on('game-createLobby', function(data) {
+    socket.on('game-lobby-create', function(data) {
         var lobby = new Lobby("a small lobby " + count);
         gameServer.addLobby(lobby);
         console.log('lobby created: ' + lobby.name);
+        socket.emit('game-lobby-created', {
+            "game-lobby": lobby.id
+        });
     });
 
     //gets game lobbies
@@ -52,13 +55,13 @@ io.on('connection', function(socket) {
             "lobby-num" : gameServer.lobbies.length, 
             "lobbies" : []
         }
-        for(var i = 0; i < gameServer.lobbies.length; i++) {
+        gameServer.lobbies.forEach(function(lobby) {
             lobbyJSON['lobbies'].push({
-                "lobby-name" : gameServer.lobbies[i].name,
-                "lobby-id" : gameServer.lobbies[i].id,
-                "lobby-players" : gameServer.lobbies[i].players.length
+                "lobby-name" : lobby.name,
+                "lobby-id" : lobby.id,
+                "lobby-players" : lobby.players.length
             });
-        }
+        });
         socket.emit('game-lobbies', lobbyJSON);
         console.log('sent lobbies');    
     });
