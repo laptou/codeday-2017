@@ -3,6 +3,7 @@
 /// <reference path="vendor/socket.io.js" />
 /// <reference path="vendor/jquery-3.1.1.js" />
 
+var server = server || null;
 var vector = {
     mult: function multiply(vec, x) {
         return { x: vec.x * x, y: vec.y * x };
@@ -122,12 +123,16 @@ class Game {
 
         this.entered = false;
         this.levelGenerated = false;
-        this.socket = socket;
 
-        this.socket.on('lobby-event', data => {
-            if (data.event == 'start')
-                this.enter();
-        });
+        if (server) {
+            this.socket = server.socket;
+
+            this.socket.on('lobby-event', data => {
+                if (data.event == 'start')
+                    this.enter();
+            });
+
+        } else this.enter();
 
         this.view.screen.appendChild(this.renderer.view);
     }
@@ -621,10 +626,10 @@ class Player {
             this.move.sx = this.x;
             this.move.sy = this.y;
 
-            if(this.move.direction)
+            if(server && this.move.direction)
                 this.game.socket.emit('lobby-event', {
-                    'player-id': playerID,
-                    'lobby-id': lobbyID,
+                    'player-id': server.playerID,
+                    'lobby-id': server.lobbyID,
                     'data': {
                         'event': 'move ' + this.move.direction
                     }
@@ -729,9 +734,9 @@ class Player {
         }
 
         var target = { x: this.x + offset.x, y: this.y + offset.y };
-        if (game.tileAt(target.x, target.y)) return false;
-        if (game.powerupAt(target.x, target.y)) return false;
-        if (game.playerAt(target.x, target.y)) return false;
+        if (this.game.tileAt(target.x, target.y)) return false;
+        if (this.game.powerupAt(target.x, target.y)) return false;
+        if (this.game.playerAt(target.x, target.y)) return false;
 
         var bomb = new Bomb(this.game, time, target.x, target.y);
         this.game.bombs.push(bomb);
@@ -1009,5 +1014,6 @@ $(function() {
     game.init();
     game.start();
 
-    $('#lobby-game-start').click(() => game.enter());
+    if ($('#lobby-game-start').length > 0) $('#lobby-game-start').click(() => game.enter());
+    else game.enter();
 });
