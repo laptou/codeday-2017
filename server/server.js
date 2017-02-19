@@ -33,7 +33,7 @@ io.on('connection', function(socket) {
     });
 
     socket.on('game-lobbies', function() {
-        count++;
+        count++;    
         var lobbyJSON = {
             "lobby-num" : gameServer.lobbies.length, 
             "lobbies" : []

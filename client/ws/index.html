@@ -7,12 +7,19 @@
         <link rel="stylesheet" href="/css/bootstrap.css" />
         <link rel="stylesheet" href="/css/bootstrap.theme.min.css" />
 
+        <script src="/js/vendor/handlebars-v4.0.5.js" />
         <script src="/js/vendor/pixi.js"></script>
         <script src="/js/vendor/socket.io.js"></script>
         <script src="/js/vendor/jquery-3.1.1.js"></script>
         <script src="/js/vendor/bootstrap.js"></script>
 
         <script src="/js/main.js"></script>
+
+        <script id="lobby-template" type="text/x-handlebars-template">
+            <li class="list-group-item">
+                <a href="/lobby/{{lobby-id}}"   >{{lobby-name}} - {{lobby-players}} players</a>
+            </li>
+        </script>
     </head>
     <body>
         <div class="container">
@@ -32,14 +39,9 @@
                 </div>  
             </nav>
             <div class="row">
-                <div class="col-md-8">
-                    <div class="jumbotron">CANVAS GOES HERE</div>
-                </div>
-                <div class="col-md-4">
-                    <h1>Lobbies</h1>
-                    <button id="createLobby" class="btn btn-default">Create Lobby</button>
-                    <ul id="lobbies"></ul>
-                </div>
+                <h1>Lobbies</h1>
+                <button id="createLobby" class="btn btn-default">Create Lobby</button>
+                <ul id="lobbies" class="list-group"></ul>
             </div>
         </div>
     </body>
