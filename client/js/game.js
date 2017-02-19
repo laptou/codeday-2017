@@ -102,6 +102,11 @@ class Game {
         this.sprite = {};
         this.stage = 0;
 
+        this.tiles = [];
+        this.powerups = [];
+        this.bombs = [];
+        this.explosions = [];
+
         this.view.screen.appendChild(this.renderer.view);
     }
 
@@ -113,6 +118,7 @@ class Game {
             .add("shadow", "/img/shadow.png")
             .add("bomb", "/img/bomb.png")
             .add("fire", "/img/fire.png")
+            .add("fire-sideways", "/img/fire-sideways.png")
             .add("bomb-tile", "/img/bomb-tile.png")
             .add("tree-light", "/img/tree-light.png")
             .add("tree-dark", "/img/tree-dark.png")
@@ -159,6 +165,10 @@ class Game {
 
                 for (let bomb of this.bombs) {
                     bomb.update(time, dtime);
+                }
+
+                for (let explosion of this.explosions) {
+                    explosion.update(time, dtime);
                 }
                 break;
         }
@@ -267,10 +277,10 @@ class Game {
 
         // #region grid generation
 
-        this.bounds = { x: 96, y: 140, width: (game.resolution.x - 192), height: (game.resolution.y - 256) };
+        this.bounds = { x: 96, y: 128, width: (game.resolution.x - 192), height: (game.resolution.y - 256) };
         this.bounds.size = Math.min(Math.floor(this.bounds.height / 9), Math.floor(this.bounds.width / 13));
         this.bounds.x = game.resolution.x / 2 - 6 * this.bounds.size;
-        this.bounds.y = game.resolution.y / 2 - 4 * this.bounds.size;
+        this.bounds.y = game.resolution.y / 2 - 4 * this.bounds.size - 40;
         this.bounds.width = 13 * this.bounds.size;
         this.bounds.height = 9 * this.bounds.size;
 
@@ -299,23 +309,33 @@ class Game {
 
         // #endregion
 
-        this.tiles = [];
-        this.bombs = [];
-
         this.tileLayer = new PIXI.Container();
+        this.powerupLayer = new PIXI.Container();
         this.tileLayer.position.set(this.bounds.x, this.bounds.y);
+        this.powerupLayer.position.set(this.bounds.x, this.bounds.y);
 
         // #region tile generation
 
-        for (var z = 0; z < 10; z++) {
-            var x = Math.floor(Math.random() * hrange / 2) * 2;
-            var y = Math.floor(Math.random() * vrange / 2) * 2;
+        for (var x = 0; x < hrange; x++) {
+            for (var y = (x + 1) % 2; y < vrange; y += 2) {
+                if (x < 3 && y < 3) continue;
+                if (x > 9 && y < 3) continue;
+                if (x > 9 && y > 5) continue;
+                if (x < 3 && y > 5) continue;
 
-            var bombTile = new Tile(this, Tile.TYPE.BOMB, x, y);
-
-            this.tileLayer.addChild(bombTile.container);
-            this.tiles.push(bombTile);
+                var woodTile = new Tile(this, Tile.TYPE.WOOD, x, y);
+            }
         }
+
+        var bombTiles = [
+            new Powerup(this, Powerup.TYPE.BOMB, 2, 0),
+            new Powerup(this, Powerup.TYPE.BOMB, 0, 2),
+            new Powerup(this, Powerup.TYPE.BOMB, 10, 0),
+            new Powerup(this, Powerup.TYPE.BOMB, 12, 2),
+            new Powerup(this, Powerup.TYPE.BOMB, 2, 8),
+            new Powerup(this, Powerup.TYPE.BOMB, 0, 6),
+            new Powerup(this, Powerup.TYPE.BOMB, 10, 8),
+            new Powerup(this, Powerup.TYPE.BOMB, 12, 6)];
 
         this.players = [new Player(this, 0, this.bounds.size), new Player(this, 1, this.bounds.size)];
 
@@ -325,14 +345,12 @@ class Game {
         for (var x = 1; x < hrange; x += 2) {
             for (var y = 1; y < vrange; y += 2) {
                 var metalTile = new Tile(this, Tile.TYPE.METAL, x, y);
-
-                this.tileLayer.addChild(metalTile.container);
-                this.tiles.push(metalTile);
             }
         }
         // #endregion
 
         this.root.addChild(this.grid);
+        this.root.addChild(this.powerupLayer);
         this.root.addChild(this.tileLayer);
     }
 
@@ -344,11 +362,45 @@ class Game {
 
         return null;
     }
+
+    powerupAt(x, y) {
+        for(let mtile of this.powerups) {
+            if (mtile.x == x && mtile.y == y)
+                return mtile;
+        }
+
+        return null;
+    }
+
+    playerAt(x, y) {
+        for(let mtile of this.players) {
+            if (mtile.x == x && mtile.y == y)
+                return mtile;
+        }
+
+        return null;
+    }
+
+    /**
+     *
+     * @param {Tile} tile
+     */
+    removeTile(tile) {
+        this.tileLayer.removeChild(tile.container);
+
+        switch (tile.type) {
+            case Tile.TYPE.METAL:
+            case Tile.TYPE.WOOD:
+                this.tiles.splice(this.tiles.indexOf(tile), 1);
+                var newTile = new Powerup(this, Powerup.TYPE.BOMB, tile.x, tile.y);
+                break;
+        }
+    }
 }
 
 class Player {
     /**
-     * 
+     *
      * @param {Game} game
      * @param {Number} index
      * @param {Number} size
@@ -367,9 +419,10 @@ class Player {
         this.y = 0;
         this.facing = "down";
         this.bomb = false;
+        this.dead = false;
 
         this.game.grid.addChild(this.sprite);
-        
+
         var keybind = keybinds[index];
         this.keyboard = {
             left: new Keyboard(keybind[0]),
@@ -390,6 +443,8 @@ class Player {
     }
 
     update(time, dtime) {
+        if (this.dead) return;
+
         if (!this.move.direction && this.keyboard.last && this.keyboard.last.isDown && time - this.move.lastTime > 0.25) {
             this.move.lastTime = time;
             var target = { x: 0, y: 0 };
@@ -435,14 +490,15 @@ class Player {
 
             var tile = this.game.tileAt(target.x, target.y);
 
-            if(tile) {
-                switch (tile.type) {
-                    case Tile.TYPE.METAL:
-                    case Tile.TYPE.WOOD:
-                        this.move.direction = null;
-                        break;
-                    case Tile.TYPE.BOMB:
-                        if (!this.pickBomb(tile))
+            if (tile) {
+                this.move.direction = null;
+            }
+
+            var powerup = this.game.powerupAt(target.x, target.y);
+            if (powerup) {
+                switch (powerup.type) {
+                    case Powerup.TYPE.BOMB:
+                        if (!this.pickBomb(powerup))
                             this.move.direction = null;
                         break;
                 }
@@ -455,7 +511,7 @@ class Player {
         if (this.move.direction) {
             if (time - this.move.lastTime <= 0.25) {
                 if (time - this.move.lastTime <= 0.05) {
-                    if(!this.keyboard.last.isDown)
+                    if (!this.keyboard.last.isDown)
                         this.move.direction = null;
                 }
                 else {
@@ -502,7 +558,7 @@ class Player {
     }
 
     /**
-     * 
+     *
      * @param {Tile} tile
      */
     pickBomb(tile) {
@@ -510,8 +566,8 @@ class Player {
         this.bomb = true;
 
         if (tile) {
-            this.game.tileLayer.removeChild(tile.container);
-            this.game.tiles.splice(this.game.tiles.indexOf(tile), 1);
+            this.game.powerupLayer.removeChild(tile.container);
+            this.game.powerups.splice(this.game.powerups.indexOf(tile), 1);
         }
 
         var bombSprite = new PIXI.Sprite(PIXI.utils.TextureCache["bomb"]);
@@ -558,11 +614,16 @@ class Player {
         this.bomb = false;
         this.sprite.removeChildren();
     }
+
+    die(time) {
+        this.dead = true;
+        this.sprite.tint = 0x999999;
+    }
 }
 
-class Tile {
+class Powerup {
     static get TYPE() {
-        return { METAL: 1, WOOD: 2, BOMB: 3, SPEED: 4 };
+        return { BOMB: 3, SPEED: 4 };
     }
 
     constructor(game, type, x, y) {
@@ -572,6 +633,41 @@ class Tile {
         this.x = x;
         this.y = y;
         this.type = type;
+
+        game.powerupLayer.addChild(this.container);
+        game.powerups.push(this);
+
+        switch (type) {
+            case Powerup.TYPE.BOMB:
+                var bombTile = new PIXI.Sprite(PIXI.utils.TextureCache["bomb-tile"]);
+
+                bombTile.x = x * size;
+                bombTile.y = y * size;
+                bombTile.anchor.set(0, 0);
+                bombTile.width = size;
+                bombTile.height = size;
+
+                this.container.addChild(bombTile);
+                break;
+        }
+    }
+}
+
+class Tile {
+    static get TYPE() {
+        return { METAL: 1, WOOD: 2 };
+    }
+
+    constructor(game, type, x, y) {
+        let size = game.bounds.size;
+
+        this.container = new PIXI.Container();
+        this.x = x;
+        this.y = y;
+        this.type = type;
+
+        game.tileLayer.addChild(this.container);
+        game.tiles.push(this);
 
         switch (type) {
             case Tile.TYPE.METAL:
@@ -590,7 +686,7 @@ class Tile {
                 shadowTile.width = size * 1.25;
                 shadowTile.height = size * 1.25 * 0.6;
 
-                this.container.addChild(shadowTile);
+                // this.container.addChild(shadowTile);
                 this.container.addChild(metalTile);
                 break;
             case Tile.TYPE.WOOD:
@@ -609,7 +705,7 @@ class Tile {
                 shadowTile.width = size * 1.25;
                 shadowTile.height = size * 1.25 * 0.6;
 
-                this.container.addChild(shadowTile);
+                // this.container.addChild(shadowTile);
                 this.container.addChild(woodTile);
                 break;
             case Tile.TYPE.BOMB:
@@ -657,6 +753,126 @@ class Bomb {
     explode(time) {
         this.game.grid.removeChild(this.sprite);
         this.game.bombs.splice(this.game.bombs.indexOf(this), 1);
+
+        this.game.explosions.push(new Explosion(this.game, this.x, this.y, time));
+    }
+}
+
+class Explosion {
+    /**
+     *
+     * @param {Game} game
+     * @param {Number} x
+     * @param {Number} y
+     * @param {Number} time
+     */
+    constructor(game, x, y, time) {
+        this.game = game;
+        this.x = x;
+        this.y = y;
+        this.beginTime = time;
+        this.container = new PIXI.Container();
+        this.game.grid.addChild(this.container);
+
+        this.left = true;
+        this.right = true;
+        this.up = true;
+        this.down = true;
+        this.radius = 0;
+    }
+
+    update(time, dtime) {
+        var t = time - this.beginTime;
+        var r = Math.floor(t / 0.15) + 1; // r for current
+
+        if (r > this.radius) {
+            if (this.left && this.x - r >= 0) {
+                var tile = this.game.tileAt(this.x - r, this.y);
+                var powerup = this.game.powerupAt(this.x - r, this.y);
+                var player = this.game.playerAt(this.x - r, this.y);
+
+                if (!tile && !powerup && !player) {
+                    this.container.addChild(this.generateTile(this.x - r, this.y, time));
+                } else {
+                    this.left = false;
+                    if (tile && tile.type == Tile.TYPE.WOOD) {
+                        this.game.removeTile(tile);
+                    }
+
+                    if (player) player.die();
+                }
+            }
+
+            if (this.right && this.x + r <= 12) {
+                var tile = this.game.tileAt(this.x + r, this.y);
+                var powerup = this.game.powerupAt(this.x + r, this.y);
+                var player = this.game.playerAt(this.x + r, this.y);
+
+                if (!tile && !powerup && !player) {
+                    this.container.addChild(this.generateTile(this.x + r, this.y, time));
+                } else {
+                    this.right = false;
+                    if (tile && tile.type == Tile.TYPE.WOOD) {
+                        this.game.removeTile(tile);
+                    }
+
+                    if (player) player.die();
+                }
+            }
+
+            if (this.up && this.y - r >= 0) {
+                var tile = this.game.tileAt(this.x, this.y - r);
+                var powerup = this.game.powerupAt(this.x, this.y - r);
+                var player = this.game.playerAt(this.x, this.y - r);
+                if (!tile && !powerup && !player) {
+                    this.container.addChild(this.generateTile(this.x, this.y - r, time));
+                } else {
+                    this.up = false;
+                    if (tile && tile.type == Tile.TYPE.WOOD) {
+                        this.game.removeTile(tile);
+                    }
+
+                    if (player) player.die();
+                }
+            }
+
+            if (this.down && this.y + r <= 8) {
+                var tile = this.game.tileAt(this.x, this.y + r);
+                var powerup = this.game.powerupAt(this.x, this.y + r);
+                var player = this.game.playerAt(this.x, this.y + r);
+
+                if (!tile && !powerup && !player) {
+                    this.container.addChild(this.generateTile(this.x, this.y + r, time));
+                } else {
+                    this.down = false;
+                    if (tile && tile.type == Tile.TYPE.WOOD) {
+                        this.game.removeTile(tile);
+                    }
+
+                    if (player) player.die();
+                }
+            }
+
+            this.radius = r;
+        }
+
+        for(let tile of this.container.children) {
+            tile.alpha = Math.max(0, 1 - (time - tile.time));
+        }
+    }
+
+    generateTile(x, y, t) {
+        var explosionTile = new PIXI.Sprite(PIXI.utils.TextureCache[x != this.x ? "fire-sideways" : "fire"]);
+        
+        explosionTile.width = this.game.bounds.size;
+        explosionTile.height = this.game.bounds.size;
+
+        explosionTile.x = x * this.game.bounds.size;
+        explosionTile.y = y * this.game.bounds.size;
+
+        explosionTile.time = t;
+
+        return explosionTile;
     }
 }
 
