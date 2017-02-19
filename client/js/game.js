@@ -97,8 +97,10 @@ class Game {
             this.socket = server.socket;
 
             this.socket.on('lobby-event', data => {
-                if (data.event == 'start')
+                if (data.data.event == 'start') {
+                    console.log('starting...');
                     this.enter();
+                }
             });
 
         } else this.enter();
@@ -192,19 +194,18 @@ class Game {
                 break;
             case 3:
                 this.root.removeChildren();
-                this.generateLevel();
 
-                for (let player of this.players) {
-                    player.update(time, dtime);
-                }
-
-                this.root.addChild(this.sprite.white);
-
-                if (this.entered)
-                {
+                if (this.entered) {
                     this.time.stage = time;
                     this.stage = 4;
-                }
+                    this.generateLevel();
+
+                    for (let player of this.players) {
+                        player.update(time, dtime);
+                    }
+
+                    this.root.addChild(this.sprite.white);
+                }                
                 break;
             case 4:
                 if (time - this.time.stage > 1) {
@@ -552,12 +553,12 @@ class Player {
         } else {
             game.socket.on('lobby-event', data => {
                 if (data.playerID == this.id) {
-                    if (data.event.startsWith("move")) {
+                    if (data.data.event.startsWith("move")) {
                         this.move.direction = "left";
                         this.facing = "left";
                     }
 
-                    if (data.event.startsWith("bomb"))
+                    if (data.data.event.startsWith("bomb"))
                         this.dropBomb((performance.now() - this.game.time.start) / 1000);
                 }
             })
@@ -1033,6 +1034,6 @@ $(function() {
     game.init();
     game.start();
 
-    if ($('#lobby-game-start').length > 0) $('#lobby-game-start').click(() => game.enter());
+    if ($('#lobby-game-start').length > 0) $('#lobby-game-start').click(() => { console.log('starting...'); game.enter(); });
     else game.enter();
 });
