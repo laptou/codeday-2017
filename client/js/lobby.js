@@ -2,6 +2,7 @@
 var lobbyID;
 var playerID; 
 var socket = io.connect('http://localhost');
+var allPlayers;
 
 $( document ).ready(function() {
     console.log('window loaded');
@@ -22,6 +23,7 @@ $( document ).ready(function() {
         $('#lobby-name').text(data['lobby-name']);
         lobbyID = data['lobby-id'];
         $('#players').html("");
+        allPlayers = data['players'];
         data['lobby-players'].forEach(function(player) {
             console.log(player['player-name']);
             $('#players').append("<li class='list-group-item'>" + 

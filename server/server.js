@@ -54,7 +54,7 @@ io.on('connection', function(socket) {
                 });
             });
         }
-        
+
         lobbyInfo();
 
 
@@ -94,7 +94,7 @@ io.on('connection', function(socket) {
         var lobby = gameServer.lobbies.get(data['lobby-id']);
         lobby.players.forEach(function(player) {
             if(player.id != data['player-id']) {
-                player.socket.emit('lobby-event', data);
+                player.socket.emit('lobby-event', data  );
             }
         });
         console.log("OG MAMA STARTS A GAME!");           
