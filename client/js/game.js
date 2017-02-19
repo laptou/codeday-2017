@@ -339,6 +339,7 @@ class Player {
         this.sprite.height = size;
         this.vx = 0;
         this.vy = 0;
+        this.facing = "down";
         this.bomb = false;
 
         this.game.grid.addChild(this.sprite);
@@ -348,6 +349,7 @@ class Player {
             right: new Keyboard(39),
             up: new Keyboard(38),
             down: new Keyboard(40),
+            enter: new Keyboard(18),
             last: null
         };
 
@@ -355,6 +357,7 @@ class Player {
         this.keyboard.down.onpress = () => this.keyboard.last = this.keyboard.down;
         this.keyboard.up.onpress = () => this.keyboard.last = this.keyboard.up;
         this.keyboard.right.onpress = () => this.keyboard.last = this.keyboard.right;
+        this.keyboard.enter.onpress = this.dropBomb((performance.now() - this.game.time.start) / 1000);
         this.move = { lastTime: 0, direction: null, sx: NaN, sy: NaN };
     }
 
@@ -365,20 +368,22 @@ class Player {
 
             switch (this.keyboard.last) {
                 case this.keyboard.left:
-                    this.sprite.texture = PIXI.utils.TextureCache["player-right"];
+                    this.sprite.texture = PIXI.utils.TextureCache["player-left"];
 
                     if (this.x - 64 < 0) break;
                     target = { x: this.x - 32, y: this.y + 32 };
 
                     this.move.direction = "left";
+                    this.facing = "right";
                     break;
                 case this.keyboard.right:
-                    this.sprite.texture = PIXI.utils.TextureCache["player-left"];
+                    this.sprite.texture = PIXI.utils.TextureCache["player-right"];
 
                     if (this.x + 64 > this.game.bounds.width) break;
                     target = { x: this.x + 96, y: this.y + 32 };
 
                     this.move.direction = "right";
+                    this.facing = "right";
                     break;
                 case this.keyboard.up:
                     this.sprite.texture = PIXI.utils.TextureCache["player-back"];
@@ -387,6 +392,7 @@ class Player {
                     target = { x: this.x + 32, y: this.y - 32 };
 
                     this.move.direction = "up";
+                    this.facing = "up";
                     break;
                 case this.keyboard.down:
                     this.sprite.texture = PIXI.utils.TextureCache["player-front"];
@@ -395,6 +401,7 @@ class Player {
                     target = { x: this.x + 32, y: this.y + 96 };
 
                     this.move.direction = "down";
+                    this.facing = "down";
                     break;
             }
 
@@ -461,17 +468,46 @@ class Player {
         if (this.bomb) return false;
         this.bomb = true;
 
-        if(tile)
-            tile.container.parent.removeChild(tile.container);
+        if (tile) {
+            this.game.grid.removeChild(tile.container);
+            this.game.tiles.splice(this.game.tiles.indexOf(tile), 1);
+        }
 
         var bombSprite = new PIXI.Sprite(PIXI.utils.TextureCache["bomb"]);
         bombSprite.width = 48;
         bombSprite.height = 48;
-        bombSprite.anchor.set(0.5, 1);
-        bombSprite.position.set(32, 64);
         this.sprite.addChild(bombSprite);
 
+        bombSprite.anchor.set(0.5, 0.5);
+        bombSprite.x = 32;
+        bombSprite.y = 32;
+
         return true;
+    }
+
+    dropBomb(time) {
+        if (!this.bomb) return false;
+        this.bomb = false;
+
+        var offset = { x: 0, y: 0 };
+        switch (this.facing) {
+            case "left":
+                offset.x = -64;
+                break;
+            case "right":
+                offset.x = 64;
+                break;
+            case "up":
+                offset.y = -64;
+                break;
+            case "down":
+                offset.y = 64;
+                break;
+        }
+
+        var bomb = new Bomb(this.game, time, this.x, this.y);
+        this.game.bombs.push(bomb);
+        this.game.grid.addChild(bomb.sprite);
     }
 
     get x() { return this.sprite.x; }
@@ -548,7 +584,31 @@ class Tile {
 }
 
 class Bomb {
+    constructor(game, time, x, y) {
+        this.game = game;
+        this.time = time;
+        this.x = x;
+        this.y = y;
 
+        this.sprite = new PIXI.Sprite(PIXI.utils.TextureCache["bomb"]);
+        this.sprite.width = 64;
+        this.sprite.height = 64;
+        this.game.grid.addChild(bombSprite);
+
+        this.sprite.x = x;
+        this.sprite.y = x;
+    }
+
+    update(time, dtime) {
+        var red = (time - this.time) / 5;
+        if (red >= 1) {
+            this.explode(time);
+        }
+    }
+
+    explode(time) {
+        this.game.grid.removeChild(this.sprite);
+    }
 }
 
 var game = new Game();
