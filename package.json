@@ -17,6 +17,8 @@
   },
   "homepage": "https://github.com/laptou/codeday-2017#readme",
   "dependencies": {
-    "express": "^4.14.1"
+    "express": "^4.14.1",
+    "express-handlebars": "^3.0.0",
+    "socket.io": "^1.7.3"
   }
 }
