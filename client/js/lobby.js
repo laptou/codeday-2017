@@ -10,21 +10,21 @@ $(document).ready(function () {
 
     var lobbyPlayerTemplate = Handlebars.compile($('#playerListTemplate').html());
 
-    socket.emit('player-connect', {
+    server.socket.emit('player-connect', {
         "lobby-id": window.location.pathname.replace('/lobby/', '')
     });
 
-    socket.on('player-assign', function (data) {
+    server.socket.on('player-assign', function (data) {
         $('#player-name').text("Welcome " + data["player-name"]);
         server.playerID = data['player-id'];
     });
 
-    socket.on('lobby-info', function (data) {
+    server.socket.on('lobby-info', function (data) {
         console.log(data);
         $('#lobby-name').text(data['lobby-name']);
         server.lobbyID = data['lobby-id'];
         $('#players').html("");
-        server.allPlayers = data['players'];
+        server.allPlayers = data['lobby-players'];
         data['lobby-players'].forEach(function (player) {
             console.log(player['player-name']);
             $('#players').append("<li class='list-group-item'>" +
@@ -38,14 +38,14 @@ $(document).ready(function () {
         }
     });
 
-    socket.on('lobby-event', function (data) {
+    server.socket.on('lobby-event', function (data) {
         console.log(data);
     });
 
     $('#lobby-game-start').on('click', function () {
-        socket.emit('lobby-event', {
-            'player-id': playerID,
-            'lobby-id': lobbyID,
+        server.socket.emit('lobby-event', {
+            'player-id': server.playerID,
+            'lobby-id': server.lobbyID,
             'data': {
                 'event': 'start'
             }

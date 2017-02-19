@@ -435,6 +435,10 @@ class Game {
 
         this.players = [new Player(this, 0, this.bounds.size), new Player(this, 1, this.bounds.size)];
 
+        if (server.allPlayers) {
+
+        }
+
         this.players[1].x = 12;
         this.players[1].y = 8;
 
