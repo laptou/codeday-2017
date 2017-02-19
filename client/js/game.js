@@ -149,6 +149,10 @@ class Game {
                 break;
             case 2:
                 this.player.update(time, dtime);
+
+                for (let bomb in this.bombs) {
+                    bomb.update();
+                }
                 break;
         }
 
@@ -284,7 +288,7 @@ class Game {
         // #endregion
 
         this.tiles = [];
-
+        this.bombs = [];
 
         // #region tile generation
 
@@ -357,7 +361,8 @@ class Player {
         this.keyboard.down.onpress = () => this.keyboard.last = this.keyboard.down;
         this.keyboard.up.onpress = () => this.keyboard.last = this.keyboard.up;
         this.keyboard.right.onpress = () => this.keyboard.last = this.keyboard.right;
-        this.keyboard.enter.onpress = this.dropBomb((performance.now() - this.game.time.start) / 1000);
+        this.keyboard.enter.onpress =
+            () => this.dropBomb((performance.now() - this.game.time.start) / 1000);
         this.move = { lastTime: 0, direction: null, sx: NaN, sy: NaN };
     }
 
@@ -508,6 +513,8 @@ class Player {
         var bomb = new Bomb(this.game, time, this.x, this.y);
         this.game.bombs.push(bomb);
         this.game.grid.addChild(bomb.sprite);
+
+        this.sprite.removeChildren();
     }
 
     get x() { return this.sprite.x; }
@@ -593,7 +600,7 @@ class Bomb {
         this.sprite = new PIXI.Sprite(PIXI.utils.TextureCache["bomb"]);
         this.sprite.width = 64;
         this.sprite.height = 64;
-        this.game.grid.addChild(bombSprite);
+        this.game.grid.addChild(this.sprite);
 
         this.sprite.x = x;
         this.sprite.y = x;
@@ -604,10 +611,13 @@ class Bomb {
         if (red >= 1) {
             this.explode(time);
         }
+
+        this.sprite.tint = (0xFF * red) << 16;
     }
 
     explode(time) {
         this.game.grid.removeChild(this.sprite);
+        this.game.bombs.splice(this.game.bombs.indexOf(this), 1);
     }
 }
 
