@@ -1,4 +1,4 @@
-/// <reference path="pixi.js" />
+/// <reference path="vendor/pixi.js" />
 
 var vector = {
     mult: function multiply(vec, x) {
@@ -108,6 +108,7 @@ class Game {
             .add("wood", "/img/wood.png")
             .add("shadow", "/img/shadow.png")
             .add("bomb", "/img/bomb.png")
+            .add("fire", "/img/fire.png")
             .add("bomb-tile", "/img/bomb-tile.png")
             .add("tree-light", "/img/tree-light.png")
             .add("tree-dark", "/img/tree-dark.png")
@@ -295,6 +296,9 @@ class Game {
         this.tiles = [];
         this.bombs = [];
 
+        this.tileLayer = new PIXI.Container();
+        this.tileLayer.position.set(this.bounds.x, this.bounds.y);
+
         // #region tile generation
 
         for (var z = 0; z < 10; z++) {
@@ -303,7 +307,7 @@ class Game {
 
             var bombTile = new Tile(this, Tile.TYPE.BOMB, x, y);
 
-            this.grid.addChild(bombTile.container);
+            this.tileLayer.addChild(bombTile.container);
             this.tiles.push(bombTile);
         }
 
@@ -313,13 +317,14 @@ class Game {
             for (var y = 1; y < vrange; y += 2) {
                 var metalTile = new Tile(this, Tile.TYPE.METAL, x, y);
 
-                this.grid.addChild(metalTile.container);
+                this.tileLayer.addChild(metalTile.container);
                 this.tiles.push(metalTile);
             }
         }
         // #endregion
 
         this.root.addChild(this.grid);
+        this.root.addChild(this.tileLayer);
     }
 
     tileAt(x, y) {
@@ -390,7 +395,7 @@ class Player {
                 case this.keyboard.right:
                     this.sprite.texture = PIXI.utils.TextureCache["player-right"];
 
-                    if (this.x + 1 > this.game.bounds.width / this.game.bounds.size) break;
+                    if (this.x + 1 >= this.game.bounds.width / this.game.bounds.size) break;
                     target = { x: this.x + 1, y: this.y };
 
                     this.move.direction = "right";
@@ -408,7 +413,7 @@ class Player {
                 case this.keyboard.down:
                     this.sprite.texture = PIXI.utils.TextureCache["player-front"];
 
-                    if (this.y + 1 > this.game.bounds.height / this.game.bounds.size) break;
+                    if (this.y + 1 >= this.game.bounds.height / this.game.bounds.size) break;
                     target = { x: this.x, y: this.y + 1 };
 
                     this.move.direction = "down";
@@ -437,19 +442,25 @@ class Player {
 
         if (this.move.direction) {
             if (time - this.move.lastTime <= 0.25) {
-                switch (this.move.direction) {
-                    case "left":
-                        this.sprite.x = this.move.sx * this.game.bounds.size - this.game.bounds.size * (time - this.move.lastTime) * 4;
-                        break;
-                    case "right":
-                        this.sprite.x = this.move.sx * this.game.bounds.size + this.game.bounds.size * (time - this.move.lastTime) * 4;
-                        break;
-                    case "up":
-                        this.sprite.y = this.move.sy * this.game.bounds.size - this.game.bounds.size * (time - this.move.lastTime) * 4;
-                        break;
-                    case "down":
-                        this.sprite.y = this.move.sy * this.game.bounds.size + this.game.bounds.size * (time - this.move.lastTime) * 4;
-                        break;
+                if (time - this.move.lastTime <= 0.05) {
+                    if(!this.keyboard.last.isDown)
+                        this.move.direction = null;
+                }
+                else {
+                    switch (this.move.direction) {
+                        case "left":
+                            this.sprite.x = this.move.sx * this.game.bounds.size - this.game.bounds.size * (time - this.move.lastTime) * 4;
+                            break;
+                        case "right":
+                            this.sprite.x = this.move.sx * this.game.bounds.size + this.game.bounds.size * (time - this.move.lastTime) * 4;
+                            break;
+                        case "up":
+                            this.sprite.y = this.move.sy * this.game.bounds.size - this.game.bounds.size * (time - this.move.lastTime) * 4;
+                            break;
+                        case "down":
+                            this.sprite.y = this.move.sy * this.game.bounds.size + this.game.bounds.size * (time - this.move.lastTime) * 4;
+                            break;
+                    }
                 }
             } else {
                 switch (this.move.direction) {
@@ -469,6 +480,7 @@ class Player {
 
                 this.sprite.x = this.x * this.game.bounds.size;
                 this.sprite.y = this.y * this.game.bounds.size;
+
                 this.move.direction = null;
             }
         }
@@ -483,7 +495,7 @@ class Player {
         this.bomb = true;
 
         if (tile) {
-            this.game.grid.removeChild(tile.container);
+            this.game.tileLayer.removeChild(tile.container);
             this.game.tiles.splice(this.game.tiles.indexOf(tile), 1);
         }
 
@@ -522,7 +534,10 @@ class Player {
                 break;
         }
 
-        var bomb = new Bomb(this.game, time, this.x + offset.x, this.y + offset.y);
+        var target = { x: this.x + offset.x, y: this.y + offset.y };
+        if (game.tileAt(target.x, target.y)) return false;
+
+        var bomb = new Bomb(this.game, time, target.x, target.y);
         this.game.bombs.push(bomb);
 
         this.bomb = false;
@@ -620,6 +635,8 @@ class Bomb {
         }
 
         this.sprite.tint = (0xFF * red) << 16;
+        this.sprite.x = this.x * this.game.bounds.size + Math.random() * red * 5;
+        this.sprite.y = this.y * this.game.bounds.size + Math.random() * red * 5;
     }
 
     explode(time) {
