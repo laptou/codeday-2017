@@ -157,7 +157,7 @@ class Game {
 
         switch (this.stage) {
             case 0: // splash screen
-                if (time > 0) {
+                if (time > 5) {
                     this.time.stage = time;
                     this.stage = 1; // splash screen only lasts 5 seconds
                     break;
@@ -182,7 +182,7 @@ class Game {
 
                 break;
             case 2:
-                if (time - this.time.stage > 0) {
+                if (time - this.time.stage > 5.5) {
                     this.time.stage = time;
                     this.stage = 3;
                     break;
