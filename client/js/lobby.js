@@ -1,7 +1,7 @@
 
 var lobbyID;
 var playerID; 
-var socket = io.connect('http://localhost');
+var socket = io.connect(window.location.protocol + "//" + window.location.hostname);
 var allPlayers;
 
 $( document ).ready(function() {

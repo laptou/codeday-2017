@@ -94,10 +94,11 @@ io.on('connection', function(socket) {
         var lobby = gameServer.lobbies.get(data['lobby-id']);
         lobby.players.forEach(function(player) {
             if(player.id != data['player-id']) {
-                player.socket.emit('lobby-event', data  );
+                console.log('emitted to ' + player.name);
+                player.socket.emit('lobby-event', data);
             }
         });
-        console.log("OG MAMA STARTS A GAME!");           
+        console.log("lobby-event logged");           
     });
 
     /*********************************THIS DEALS WITH GETTING LOBBIES***********************/

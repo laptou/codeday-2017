@@ -3,7 +3,7 @@ $( document ).ready(function() {
     
     var lobbyTemplate = Handlebars.compile($('#lobby-template').html());
     var lobbyID;
-    var socket = io.connect('http://localhost');
+    var socket = io.connect(window.location.protocol + "//" + window.location.hostname);
 
     socket.on('game-lobbies', function(data) {
         console.log(data);
