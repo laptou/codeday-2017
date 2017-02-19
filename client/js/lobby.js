@@ -17,6 +17,7 @@ $( document ).ready(function() {
         console.log(data);
         $('#lobby-name').text(data['lobby-name']);
         lobbyID = data['lobby-id'];
+        $('#players').text("");
         data['lobby-players'].forEach(function(player) {
             console.log(player['player-name']);
             $('#players').append("<li class='list-group-item'>" + 

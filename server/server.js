@@ -39,6 +39,27 @@ io.on('connection', function(socket) {
         gameServer.addPlayer(newPlayer);
         lobby.addPlayer(newPlayer);
 
+        function lobbyInfo() {
+            var players = []
+            lobby.players.forEach(function(player) {
+                players.push({
+                    "player-id": player.id,
+                    "player-name" : player.name
+                })
+            });
+
+            socket.emit('lobby-info', {
+                "lobby-id": lobby.id,
+                "lobby-name": lobby.name,
+                "lobby-players": players
+            });
+        }
+
+        socket.on('lobby-info', function(data) {
+            lobbyInfo();
+        });
+        lobbyInfo();
+
         socket.emit('player-assign', {
                 "player-name": newPlayer.name,
                 "player-id" : newPlayer.id
@@ -57,6 +78,7 @@ io.on('connection', function(socket) {
             "lobby-name": lobby.name,
             "lobby-players": players
         });
+
         console.log('Player connected: ' + newPlayer.name);
 
         //player
@@ -66,7 +88,7 @@ io.on('connection', function(socket) {
         })
     });
 
-    //use 'game-play-event' message header to transmit any events 
+    //use 'lobby-event' message header to transmit any events 
     //you need to retransmit to all players in lobby
     // needs 'game-lobby', 'game-player', 'game-data' json things
     socket.on('lobby-event', function(data) {
