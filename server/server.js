@@ -12,8 +12,8 @@ app.use('/', express.static(path.join(__dirname, '../client')));
 app.engine('.hbs', exphbs({defaultLayout: 'standard', extname: '.hbs'}));
 app.set('view engine', '.hbs');
 
-app.get('/lobby/:uuid', function(req, res) {
-    res.render('lobby');
+app.get('/lobby/:id', function(req, res) {
+    res.render('lobby', {"lobby-id": req.params.id});
 });
 
 var gameServer = new GameServer();

@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
     <head>
         <meta charset="utf-8">
@@ -19,7 +19,7 @@
             <li class="list-group-item">
                 <a href="/lobby/{{lobby-id}}">{{lobby-name}} - {{lobby-players}} players</a>
             </li>
-        </script>
+        </script>       
     </head>
     <body>
         <div class="container">
@@ -42,7 +42,9 @@
                 <h1>Lobbies</h1>
                 <button id="createLobby" class="btn btn-default">Create Lobby</button>
                 <ul id="lobbies" class="list-group"></ul>
+                <div id="game"></div>
             </div>
         </div>
+        <script src="/js/game.js"></script>
     </body>
 </html>

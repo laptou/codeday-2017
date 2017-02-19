@@ -9,10 +9,10 @@
 
         <script src="/js/vendor/handlebars-v4.0.5.js" />
         <script src="/js/vendor/pixi.js"></script>
+
         <script src="/js/vendor/socket.io.js"></script>
         <script src="/js/vendor/jquery-3.1.1.js"></script>
         <script src="/js/vendor/bootstrap.js"></script>
-
         <script src="/js/lobby.js"></script>
     </head>
     <body>
@@ -33,11 +33,14 @@
         </nav>
         <div class="row">
             <div class="col-md-10">
-                CANVAS
+                <div id="game" style="">
+    
+                </div>
             </div>
             <div class="col-md-2">
-                PEOPLE
+                {{ lobby-id }}
             </div>
         </div>
+        <script src="/js/game.js"></script>
     </body>
 </html>
