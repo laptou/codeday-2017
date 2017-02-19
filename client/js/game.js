@@ -150,8 +150,8 @@ class Game {
             case 2:
                 this.player.update(time, dtime);
 
-                for (let bomb in this.bombs) {
-                    bomb.update();
+                for (let bomb of this.bombs) {
+                    bomb.update(time, dtime);
                 }
                 break;
         }
@@ -261,7 +261,7 @@ class Game {
         // #region grid generation
 
         let size = 64;
-        this.bounds = { x: 96, y: 140, width: (game.resolution.x - 192), height: (game.resolution.y - 256) };
+        this.bounds = { x: 96, y: 140, width: (game.resolution.x - 192), height: (game.resolution.y - 256), size: size };
         this.grid = new PIXI.Container();
         this.grid.position.set(this.bounds.x, this.bounds.y);
 
@@ -343,6 +343,8 @@ class Player {
         this.sprite.height = size;
         this.vx = 0;
         this.vy = 0;
+        this.x = 0;
+        this.y = 0;
         this.facing = "down";
         this.bomb = false;
 
@@ -353,7 +355,7 @@ class Player {
             right: new Keyboard(39),
             up: new Keyboard(38),
             down: new Keyboard(40),
-            enter: new Keyboard(18),
+            enter: new Keyboard(13),
             last: null
         };
 
@@ -375,17 +377,17 @@ class Player {
                 case this.keyboard.left:
                     this.sprite.texture = PIXI.utils.TextureCache["player-left"];
 
-                    if (this.x - 64 < 0) break;
-                    target = { x: this.x - 32, y: this.y + 32 };
+                    if (this.x - 1 < 0) break;
+                    target = { x: this.x - 1, y: this.y };
 
                     this.move.direction = "left";
-                    this.facing = "right";
+                    this.facing = "left";
                     break;
                 case this.keyboard.right:
                     this.sprite.texture = PIXI.utils.TextureCache["player-right"];
 
-                    if (this.x + 64 > this.game.bounds.width) break;
-                    target = { x: this.x + 96, y: this.y + 32 };
+                    if (this.x + 1 > this.game.bounds.width / this.game.bounds.size) break;
+                    target = { x: this.x + 1, y: this.y };
 
                     this.move.direction = "right";
                     this.facing = "right";
@@ -393,8 +395,8 @@ class Player {
                 case this.keyboard.up:
                     this.sprite.texture = PIXI.utils.TextureCache["player-back"];
 
-                    if (this.y - 64 < 0) break;
-                    target = { x: this.x + 32, y: this.y - 32 };
+                    if (this.y - 1 < 0) break;
+                    target = { x: this.x, y: this.y - 1 };
 
                     this.move.direction = "up";
                     this.facing = "up";
@@ -402,8 +404,8 @@ class Player {
                 case this.keyboard.down:
                     this.sprite.texture = PIXI.utils.TextureCache["player-front"];
 
-                    if (this.y + 64 > this.game.bounds.height) break;
-                    target = { x: this.x + 32, y: this.y + 96 };
+                    if (this.y + 1 > this.game.bounds.height / this.game.bounds.size) break;
+                    target = { x: this.x, y: this.y + 1 };
 
                     this.move.direction = "down";
                     this.facing = "down";
@@ -433,33 +435,37 @@ class Player {
             if (time - this.move.lastTime <= 0.25) {
                 switch (this.move.direction) {
                     case "left":
-                        this.x = this.move.sx - 64 * (time - this.move.lastTime) * 4;
+                        this.sprite.x = this.move.sx * this.game.bounds.size - this.game.bounds.size * (time - this.move.lastTime) * 4;
                         break;
                     case "right":
-                        this.x = this.move.sx + 64 * (time - this.move.lastTime) * 4;
+                        this.sprite.x = this.move.sx * this.game.bounds.size + this.game.bounds.size * (time - this.move.lastTime) * 4;
                         break;
                     case "up":
-                        this.y = this.move.sy - 64 * (time - this.move.lastTime) * 4;
+                        this.sprite.y = this.move.sy * this.game.bounds.size - this.game.bounds.size * (time - this.move.lastTime) * 4;
                         break;
                     case "down":
-                        this.y = this.move.sy + 64 * (time - this.move.lastTime) * 4;
+                        this.sprite.y = this.move.sy * this.game.bounds.size + this.game.bounds.size * (time - this.move.lastTime) * 4;
                         break;
                 }
             } else {
+
                 switch (this.move.direction) {
                     case "left":
-                        this.x = this.move.sx - 64;
+                        this.x = this.move.sx - 1;
                         break;
                     case "right":
-                        this.x = this.move.sx + 64;
+                        this.x = this.move.sx + 1;
                         break;
                     case "up":
-                        this.y = this.move.sy - 64;
+                        this.y = this.move.sy - 1;
                         break;
                     case "down":
-                        this.y = this.move.sy + 64;
+                        this.y = this.move.sy + 1;
                         break;
                 }
+
+                this.sprite.x = this.x * this.game.bounds.size;
+                this.sprite.y = this.y * this.game.bounds.size;
                 this.move.direction = null;
             }
         }
@@ -492,35 +498,33 @@ class Player {
 
     dropBomb(time) {
         if (!this.bomb) return false;
-        this.bomb = false;
 
         var offset = { x: 0, y: 0 };
         switch (this.facing) {
             case "left":
+                if (this.x <= 0) return false;
                 offset.x = -64;
                 break;
             case "right":
+                if (this.x + 64 >= this.game.grid.width) return false;
                 offset.x = 64;
                 break;
             case "up":
+                if (this.y <= 0) return false;
                 offset.y = -64;
                 break;
             case "down":
+                if (this.y + 64 >= this.game.grid.height) return false;
                 offset.y = 64;
                 break;
         }
 
-        var bomb = new Bomb(this.game, time, this.x, this.y);
+        var bomb = new Bomb(this.game, time, this.x + offset.x, this.y + offset.y);
         this.game.bombs.push(bomb);
-        this.game.grid.addChild(bomb.sprite);
 
+        this.bomb = false;
         this.sprite.removeChildren();
     }
-
-    get x() { return this.sprite.x; }
-    set x(x) { this.sprite.x = x; }
-    get y() { return this.sprite.y; }
-    set y(y) { this.sprite.y = y; }
 }
 
 class Tile {
@@ -603,7 +607,7 @@ class Bomb {
         this.game.grid.addChild(this.sprite);
 
         this.sprite.x = x;
-        this.sprite.y = x;
+        this.sprite.y = y;
     }
 
     update(time, dtime) {
