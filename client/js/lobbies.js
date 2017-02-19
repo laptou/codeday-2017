@@ -22,9 +22,5 @@ $( document ).ready(function() {
     socket.on('game-lobby-created', function(data) {
         $( location ).attr('href', '/lobby/' + data['game-lobby']);
     });
-
-    getLobbies();
-    function getLobbies() {
-        socket.emit('game-lobbies');
-    }
+    socket.emit('game-lobbies');
 });     

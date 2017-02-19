@@ -52,9 +52,9 @@ io.on('connection', function(socket) {
                     "lobby-name": lobby.name,
                     "lobby-players": players
                 });
-            })
-            
+            });
         }
+        
         lobbyInfo();
 
 
@@ -83,6 +83,7 @@ io.on('connection', function(socket) {
         socket.on('disconnect', function() {
             console.log('Player disconnected: ' + newPlayer.name);
             lobby.removePlayer(newPlayer);
+            lobbyInfo();
         })
     });
 
