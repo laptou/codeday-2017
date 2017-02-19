@@ -563,6 +563,30 @@ class Player {
                     if (data.data.event.startsWith("move")) {
                         this.move.direction = data.data.event.split()[1];
                         this.facing = data.data.event.split()[1];
+
+                        var target = { x: 0, y: 0 };
+
+                        switch (this.move.direction) {
+                            case "left":
+                                if (this.x - 1 < 0) break;
+                                target = { x: this.x - 1, y: this.y };
+                                break;
+                            case this.keyboard.right:
+                                if (this.x + 1 >= this.game.bounds.width / this.game.bounds.size) break;
+                                target = { x: this.x + 1, y: this.y };
+                                break;
+                            case this.keyboard.up:
+                                if (this.y - 1 < 0) break;
+                                target = { x: this.x, y: this.y - 1 };
+                                break;
+                            case this.keyboard.down:
+                                if (this.y + 1 >= this.game.bounds.height / this.game.bounds.size) break;
+                                target = { x: this.x, y: this.y + 1 };
+                                break;
+                        }
+
+                        this.move.sx = this.x;
+                        this.move.sy = this.y;
                     }
 
                     if (data.data.event.startsWith("bomb"))
