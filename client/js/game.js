@@ -403,14 +403,12 @@ class Game {
             new Powerup(this, Powerup.TYPE.BOMB, 10, 8),
             new Powerup(this, Powerup.TYPE.BOMB, 12, 6)];
 
-        this.players = [new Player(this, false, 0, 0, this.bounds.size), new Player(this, false, 1, 1, this.bounds.size)];
-
-        this.players[1].x = 12;
-        this.players[1].y = 8;
+        
 
         if (server) {
             var index = server.allPlayers.findIndex(p => p['player-id'] == server.playerID);
-            this.players = [new Player(this, false, index, 0, this.bounds.size)];
+            var myPlayer = new Player(this, false, index, 0, this.bounds.size);
+            this.players = [myPlayer];
 
             var i = 0;
             for(let playerOnline of server.allPlayers) {
@@ -422,6 +420,10 @@ class Game {
 
                 i++;
             }
+
+            var indexfn = p => server.allPlayers.findIndex(sp => sp['player-id'] == p.id);
+            
+            this.players.sort((a, b) => indexfn(a) < indexfn(b) ? -1 : 1);
 
             this.players[1].x = 12;
             this.players[1].y = 8;
@@ -435,6 +437,11 @@ class Game {
                 this.players[3].x = 12;
                 this.players[3].y = 0;
             }
+        } else {
+            this.players = [new Player(this, false, 0, 0, this.bounds.size), new Player(this, false, 1, 1, this.bounds.size)];
+
+            this.players[1].x = 12;
+            this.players[1].y = 8;
         }
 
 
