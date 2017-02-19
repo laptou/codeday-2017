@@ -4,37 +4,6 @@
 /// <reference path="vendor/jquery-3.1.1.js" />
 
 var server = server || null;
-var vector = {
-    mult: function multiply(vec, x) {
-        return { x: vec.x * x, y: vec.y * x };
-    },
-    elemMult: function elementwiseMultiply(veca, vecb) {
-        return { x: veca.x * vecb.x, y: veca.y * vecb.y };
-    },
-    dot: function dot(veca, vecb) {
-        return veca.x * vecb.x + veca.y * vecb.y;
-    },
-    sub: function subtract(veca, vecb) {
-        return { x: veca.x - vecb.x, y: veca.y - vecb.y };
-    },
-    add: function add(veca, vecb) {
-        return { x: veca.x + vecb.x, y: veca.y + vecb.y };
-    },
-    neg: function subtract(vec) {
-        return { x: -vec.x, y: -vec.y };
-    },
-    len: function length(vec) {
-        return Math.sqrt(vector.dot(vec, vec));
-    },
-    rot: function rotate(vec, theta) {
-        var s = Math.sin(theta);
-        var c = Math.cos(theta);
-        return { x: vec.x * c - vec.y * s, y: vec.x * s + vec.y * c };
-    },
-    norm: function normalise(vec) {
-        return vector.mult(vec, 1 / (vector.len(vec) || 1));
-    }
-};
 let tints = [0xFF9999, 0x99FF99, 0xFFFF99, 0x9999FF, 0xFFCC99, 0xFF99CC];
 let keybinds = [
     [37, 39, 38, 40, 13],
@@ -186,7 +155,7 @@ class Game {
 
         switch (this.stage) {
             case 0: // splash screen
-                if (time > 5) {
+                if (time > 0) {
                     this.time.stage = time;
                     this.stage = 1; // splash screen only lasts 5 seconds
                     break;
@@ -211,7 +180,7 @@ class Game {
 
                 break;
             case 2:
-                if (time - this.time.stage > 5.5) {
+                if (time - this.time.stage > 0) {
                     this.time.stage = time;
                     this.stage = 3;
                     break;
@@ -433,14 +402,40 @@ class Game {
             new Powerup(this, Powerup.TYPE.BOMB, 10, 8),
             new Powerup(this, Powerup.TYPE.BOMB, 12, 6)];
 
-        this.players = [new Player(this, 0, this.bounds.size), new Player(this, 1, this.bounds.size)];
-
-        if (server.allPlayers) {
-
-        }
+        this.players = [new Player(this, false, 0, 0, this.bounds.size), new Player(this, false, 1, 1, this.bounds.size)];
 
         this.players[1].x = 12;
         this.players[1].y = 8;
+
+        if (server) {
+            var index = server.allPlayers.findIndex(p => p['player-id'] == server.playerID);
+            this.players = [new Player(this, false, index, 0, this.bounds.size)];
+
+            var i = 0;
+            for(let playerOnline of server.allPlayers) {
+                if (i == index) { i++; continue; }
+
+                var player = new Player(this, true, i, 0, this.bounds.size);
+                player.id = playerOnline['player-id'];
+                this.players.push(player);
+
+                i++;
+            }
+
+            this.players[1].x = 12;
+            this.players[1].y = 8;
+
+            if (players[2]) {
+                this.players[2].x = 0;
+                this.players[2].y = 8;
+            }
+
+            if (players[3]) {
+                this.players[3].x = 12;
+                this.players[3].y = 0;
+            }
+        }
+
 
         for (var x = 1; x < hrange; x += 2) {
             for (var y = 1; y < vrange; y += 2) {
@@ -516,8 +511,9 @@ class Player {
      * @param {Number} index
      * @param {Number} size
      */
-    constructor(game, index, size, x, y) {
+    constructor(game, online, index, keys, size, x, y) {
         this.game = game;
+        this.online = online;
         this.sprite = new PIXI.Sprite(PIXI.utils.TextureCache["player-front"]);
         this.sprite.tint = tints[index];
         this.sprite.width = size;
@@ -536,22 +532,37 @@ class Player {
 
         this.game.grid.addChild(this.sprite);
 
-        var keybind = keybinds[index];
-        this.keyboard = {
-            left: new Keyboard(keybind[0]),
-            right: new Keyboard(keybind[1]),
-            up: new Keyboard(keybind[2]),
-            down: new Keyboard(keybind[3]),
-            enter: new Keyboard(keybind[4]),
-            last: null
-        };
+        if (!this.online) {
+            var keybind = keybinds[keys];
+            this.keyboard = {
+                left: new Keyboard(keybind[0]),
+                right: new Keyboard(keybind[1]),
+                up: new Keyboard(keybind[2]),
+                down: new Keyboard(keybind[3]),
+                enter: new Keyboard(keybind[4]),
+                last: null
+            };
 
-        this.keyboard.left.onpress = () => this.keyboard.last = this.keyboard.left;
-        this.keyboard.down.onpress = () => this.keyboard.last = this.keyboard.down;
-        this.keyboard.up.onpress = () => this.keyboard.last = this.keyboard.up;
-        this.keyboard.right.onpress = () => this.keyboard.last = this.keyboard.right;
-        this.keyboard.enter.onpress =
-            () => this.dropBomb((performance.now() - this.game.time.start) / 1000);
+            this.keyboard.left.onpress = () => this.keyboard.last = this.keyboard.left;
+            this.keyboard.down.onpress = () => this.keyboard.last = this.keyboard.down;
+            this.keyboard.up.onpress = () => this.keyboard.last = this.keyboard.up;
+            this.keyboard.right.onpress = () => this.keyboard.last = this.keyboard.right;
+            this.keyboard.enter.onpress =
+                () => this.dropBomb((performance.now() - this.game.time.start) / 1000);
+        } else {
+            game.socket.on('lobby-event', data => {
+                if (data.playerID == this.id) {
+                    if (data.event.startsWith("move")) {
+                        this.move.direction = "left";
+                        this.facing = "left";
+                    }
+
+                    if (data.event.startsWith("bomb"))
+                        this.dropBomb((performance.now() - this.game.time.start) / 1000);
+                }
+            })
+        }
+
         this.move = { lastTime: 0, direction: null, sx: NaN, sy: NaN, keepGoing: false };
     }
 
@@ -561,90 +572,93 @@ class Player {
             return;
         }
 
-        if (this.keyboard.last && !this.keyboard.last.isDown)
-            this.move.keepGoing = false;
+        if (!this.online) {
 
-        if (!this.moving && this.keyboard.last && this.keyboard.last.isDown && time - this.move.lastTime > 0.25) {
-            this.move.lastTime = time;
-            var target = { x: 0, y: 0 };
-
-            switch (this.keyboard.last) {
-                case this.keyboard.left:
-                    this.sprite.texture = PIXI.utils.TextureCache["player-left"];
-
-                    if (this.x - 1 < 0) break;
-                    target = { x: this.x - 1, y: this.y };
-
-                    this.move.direction = "left";
-                    this.facing = "left";
-                    break;
-                case this.keyboard.right:
-                    this.sprite.texture = PIXI.utils.TextureCache["player-right"];
-
-                    if (this.x + 1 >= this.game.bounds.width / this.game.bounds.size) break;
-                    target = { x: this.x + 1, y: this.y };
-
-                    this.move.direction = "right";
-                    this.facing = "right";
-                    break;
-                case this.keyboard.up:
-                    this.sprite.texture = PIXI.utils.TextureCache["player-back"];
-
-                    if (this.y - 1 < 0) break;
-                    target = { x: this.x, y: this.y - 1 };
-
-                    this.move.direction = "up";
-                    this.facing = "up";
-                    break;
-                case this.keyboard.down:
-                    this.sprite.texture = PIXI.utils.TextureCache["player-front"];
-
-                    if (this.y + 1 >= this.game.bounds.height / this.game.bounds.size) break;
-                    target = { x: this.x, y: this.y + 1 };
-
-                    this.move.direction = "down";
-                    this.facing = "down";
-                    break;
-            }
-
-            this.moving = true;
-            this.move.keepGoing = true;
-
-            var tile = this.game.tileAt(target.x, target.y);
-
-            if (tile) {
-                this.move.direction = null;
-                this.moving = false;
+            if (this.keyboard.last && !this.keyboard.last.isDown)
                 this.move.keepGoing = false;
-            }
 
-            var powerup = this.game.powerupAt(target.x, target.y);
-            if (powerup) {
-                switch (powerup.type) {
-                    case Powerup.TYPE.BOMB:
-                        if (!this.pickBomb(powerup))
-                            this.move.direction = null;
+            if (!this.moving && this.keyboard.last && this.keyboard.last.isDown && time - this.move.lastTime > 0.25) {
+                this.move.lastTime = time;
+                var target = { x: 0, y: 0 };
+
+                switch (this.keyboard.last) {
+                    case this.keyboard.left:
+                        this.sprite.texture = PIXI.utils.TextureCache["player-left"];
+
+                        if (this.x - 1 < 0) break;
+                        target = { x: this.x - 1, y: this.y };
+
+                        this.move.direction = "left";
+                        this.facing = "left";
+                        break;
+                    case this.keyboard.right:
+                        this.sprite.texture = PIXI.utils.TextureCache["player-right"];
+
+                        if (this.x + 1 >= this.game.bounds.width / this.game.bounds.size) break;
+                        target = { x: this.x + 1, y: this.y };
+
+                        this.move.direction = "right";
+                        this.facing = "right";
+                        break;
+                    case this.keyboard.up:
+                        this.sprite.texture = PIXI.utils.TextureCache["player-back"];
+
+                        if (this.y - 1 < 0) break;
+                        target = { x: this.x, y: this.y - 1 };
+
+                        this.move.direction = "up";
+                        this.facing = "up";
+                        break;
+                    case this.keyboard.down:
+                        this.sprite.texture = PIXI.utils.TextureCache["player-front"];
+
+                        if (this.y + 1 >= this.game.bounds.height / this.game.bounds.size) break;
+                        target = { x: this.x, y: this.y + 1 };
+
+                        this.move.direction = "down";
+                        this.facing = "down";
                         break;
                 }
-            }
 
-            this.move.sx = this.x;
-            this.move.sy = this.y;
+                this.moving = true;
+                this.move.keepGoing = true;
 
-            if(server && this.move.direction)
-                this.game.socket.emit('lobby-event', {
-                    'player-id': server.playerID,
-                    'lobby-id': server.lobbyID,
-                    'data': {
-                        'event': 'move ' + this.move.direction
+                var tile = this.game.tileAt(target.x, target.y);
+
+                if (tile) {
+                    this.move.direction = null;
+                    this.moving = false;
+                    this.move.keepGoing = false;
+                }
+
+                var powerup = this.game.powerupAt(target.x, target.y);
+                if (powerup) {
+                    switch (powerup.type) {
+                        case Powerup.TYPE.BOMB:
+                            if (!this.pickBomb(powerup))
+                                this.move.direction = null;
+                            break;
                     }
-                })
+                }
+
+                this.move.sx = this.x;
+                this.move.sy = this.y;
+
+                if (server && this.move.direction)
+                    this.game.socket.emit('lobby-event', {
+                        'player-id': server.playerID,
+                        'lobby-id': server.lobbyID,
+                        'data': {
+                            'event': 'move ' + this.move.direction
+                        }
+                    });
+            }
         }
 
         if (this.moving && this.move.direction) {
             if (time - this.move.lastTime <= 0.25) {
                 if (!this.move.keepGoing && time - this.move.lastTime <= 0.1) {
-                    if (!this.keyboard.last.isDown)
+                    if (!this.online && !this.keyboard.last.isDown)
                         this.move.direction = null;
                 }
                 else {

@@ -31,11 +31,11 @@ $(document).ready(function () {
             player['player-name'] + "</li>");
         });
 
-        if (data['lobby-players'].length > 3) {
-            $('#lobby-game-start').removeClass("hidden");
-        } else {
-            $('#lobby-game-start').addClass("hidden");
-        }
+        //if (data['lobby-players'].length > 3) {
+        //    $('#lobby-game-start').removeClass("hidden");
+        //} else {
+        //    $('#lobby-game-start').addClass("hidden");
+        //}
     });
 
     server.socket.on('lobby-event', function (data) {
